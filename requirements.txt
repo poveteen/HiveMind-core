@@ -1,0 +1,14 @@
+pyopenssl
+service_identity
+flask
+flask-sslify
+yagmail
+autobahn
+twisted
+sqlalchemy
+tornado
+SpeechRecognition
+responsivevoice
+hclib
+fbchat
+remi
