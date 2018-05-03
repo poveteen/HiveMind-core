@@ -253,6 +253,7 @@ def start_mind(config=None, emitter=None):
     config = config or Configuration.get().get("hivemind", {}).get("mind", {})
     host = config.get("host", "0.0.0.0")
     port = config.get("port", 5678)
+    use_ssl = config.get("ssl", False)
     max_connections = config.get("max_connections", -1)
     adress = u"wss://" + unicode(host) + u":" + unicode(port)
     cert = config.get("cert_file", expanduser('~/.mycroft/hivemind/certs/default.crt'))
