@@ -20,7 +20,7 @@ Set of 3 skills
 
 * mind - turns that mycroft-core instance into a mycroft server
 * drone - turns that mycroft-core instance to a mind client, all kinds of messagebus interactions are possible
-* collective - get a list of public(or not) minds, ask them anything, this would be a volunteer network of everyone using the skill, private, or a combination
+* collective - get a list of public(or not) minds, ask them anything, this would be a volunteer network of everyone using the skill, a private list, or a combination
 
 
 minds parse and filters requests, connecting clients require api keys
