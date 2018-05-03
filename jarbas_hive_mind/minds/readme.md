@@ -1,6 +1,6 @@
 ## Hive Mind
 
-listen for secure websocket connection, interact with mycroft-core
+listen for secure websocket connection, interact with mycroft-core  message bus
 
 ## Message Bus API
 
@@ -27,7 +27,7 @@ add a section to your config file (optional)
         "mind": {
             "port": 5678,
             "max_connections": -1,
-            "ssl": False,
+            "ssl": True,
             "cert": "path/to/ssl.crt",
             "key": "path/to/ssl.key"
         }
