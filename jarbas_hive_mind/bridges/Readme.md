@@ -4,7 +4,7 @@ Bridges connect some external service to a Hive Mind or Node
 
 Bridges do not need to run on the same machine as the Hive Mind / Node
 
-They are specially useful for chatbots
+They are specially useful for chatbots, proxys or relays
 
 ## Hive Bridge Examples
 
