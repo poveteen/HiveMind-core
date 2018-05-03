@@ -1,6 +1,6 @@
 ## Flask Hive Node
 
-the [flask hive node]() provides a REST http(s) endpoint, allows you to query registered intents, ask questions to mycroft mong other things
+the flask hive node provides a REST http(s) endpoint, allows you to query registered intents, ask questions to mycroft mong other things
 
 ## Configuration
 

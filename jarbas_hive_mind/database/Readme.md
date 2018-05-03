@@ -2,7 +2,7 @@
 
 sql database interaction, track the Hive Mind Clients and API keys
 
-the [Flask Hive Node]() provides a REST api for some database interactions
+the [Flask Hive Node](https://github.com/JarbasAl/hive_mind/tree/master/jarbas_hive_mind/nodes/flask) provides a REST api for some database interactions
 
 ## Client connections
 

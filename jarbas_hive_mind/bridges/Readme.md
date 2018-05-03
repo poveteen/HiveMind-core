@@ -8,6 +8,6 @@ They are specially useful for chatbots
 
 ## Hive Bridge Examples
 
-* [Hack Chat Bridge]() - lives on a hack.chat channel, responds to mentions @bot_name
-* [Twitch Bridge]() - lives on a twitch channel, responds to mentions @bot_name
-* [Facebook Bridge]() - lives on a facebook user profile, responds to direct messages
+* [Hack Chat Bridge](https://github.com/JarbasAl/hive_mind/blob/master/jarbas_hive_mind/bridges/hack_chat_bridge.py) - lives on a hack.chat channel, responds to mentions @bot_name
+* [Twitch Bridge](https://github.com/JarbasAl/hive_mind/blob/master/jarbas_hive_mind/bridges/twitch_bridge.py) - lives on a twitch channel, responds to mentions @bot_name
+* [Facebook Bridge](https://github.com/JarbasAl/hive_mind/blob/master/jarbas_hive_mind/bridges/facebook_bridge.py) - lives on a facebook user profile, responds to direct messages
