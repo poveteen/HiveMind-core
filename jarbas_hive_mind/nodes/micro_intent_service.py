@@ -8,8 +8,8 @@ class MicroIntentService(IntentService):
         self.skills_map = {}
         self.vocab_map = {}
         IntentService.__init__(self, ws)
-        self.emitter.on("skill.loaded", self.handle_skill_load)
-        self.emitter.on("skill.shutdown", self.handle_skill_shutdown)
+        self.emitter.on("mycroft.skills.loaded", self.handle_skill_load)
+        self.emitter.on("mycroft.skills.shutdown", self.handle_skill_shutdown)
 
     def handle_utterance(self, message):
         pass
@@ -87,3 +87,7 @@ class MicroIntentService(IntentService):
             return best_intent
         else:
             return None
+
+    def shutdown(self):
+        self.emitter.remove("mycroft.skills.loaded", self.handle_skill_load)
+        self.emitter.remove("mycroft.skills.shutdown", self.handle_skill_shutdown)

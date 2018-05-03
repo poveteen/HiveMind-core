@@ -4,6 +4,7 @@ from jarbas_hive_mind.nodes.flask.base import *
 
 from mycroft.messagebus.client.ws import WebsocketClient
 from mycroft.messagebus.message import Message
+from mycroft.configuration.config import Configuration
 from jarbas_hive_mind.nodes.micro_intent_service import MicroIntentService
 
 ws = None
@@ -168,8 +169,9 @@ def end_wait(message):
                                  context}
 
 
-if __name__ == "__main__":
-    global app, ws, intents
+def launch(config=None):
+    global app, ws, intents, timeout
+    config = config or Configuration.get().get("hivemind", {}).get("flask_node", {})
     # connect to internal mycroft
     ws = WebsocketClient()
     ws.on("mycroft.skill.handler.complete", end_wait)
@@ -178,6 +180,11 @@ if __name__ == "__main__":
     event_thread = Thread(target=connect)
     event_thread.setDaemon(True)
     event_thread.start()
-    port = 6712
+    port = config.get("port", 6712)
+    timeout = config.get("timeout", timeout)
     intents = MicroIntentService(ws)
     start(app, port)
+
+
+if __name__ == "__main__":
+    launch()

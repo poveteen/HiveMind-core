@@ -5,8 +5,8 @@ from jarbas_hive_mind.database import Base
 from os.path import join, expanduser
 
 
-class User(Base):
-    __tablename__ = "admins"
+class Client(Base):
+    __tablename__ = "clients"
     id = Column(Integer, primary_key=True)
     description = Column(Text)
     api_key = Column(String)
@@ -16,15 +16,15 @@ class User(Base):
     is_admin = Column(Boolean, default=False)
 
 
-class UserDatabase(object):
-    default_db = "sqlite:///" + join(expanduser("~/.mycroft/hivemind/database"), "users.db")
+class ClientDatabase(object):
+    default_db = "sqlite:///" + join(expanduser("~/.mycroft/hivemind/database"), "clients.db")
 
     def __init__(self, path=None, debug=False):
         if path is None:
             try:
                 from mycroft.configuration.config import Configuration
                 path = Configuration.get().get("hivemind", {})\
-                    .get("sql_user_db", self.default_db)
+                    .get("sql_client_db", self.default_db)
             except ImportError:
                 path = self.default_db
 
@@ -36,47 +36,47 @@ class UserDatabase(object):
         Base.metadata.create_all(self.db)
 
     def update_timestamp(self, api, timestamp):
-        user = self.get_user_by_api_key(api)
+        user = self.get_client_by_api_key(api)
         if not user:
             return False
         user.last_seen = timestamp
         return self.commit()
 
-    def delete_user(self, api):
-        user = self.get_user_by_api_key(api)
+    def delete_client(self, api):
+        user = self.get_client_by_api_key(api)
         if user:
             self.session.delete(user)
             return self.commit()
         return False
 
     def change_api(self, user_name, new_key):
-        user = self.get_user_by_name(user_name)
+        user = self.get_client_by_name(user_name)
         if not user:
             return False
         user.api_key = new_key
         return self.commit()
 
     def change_name(self, new_name, key):
-        user = self.get_user_by_api_key(key)
+        user = self.get_client_by_api_key(key)
         if not user:
             return False
         user.name = new_name
         return self.commit()
 
-    def get_user_by_api_key(self, api_key):
-        return self.session.query(User).filter_by(api_key=api_key).first()
+    def get_client_by_api_key(self, api_key):
+        return self.session.query(Client).filter_by(api_key=api_key).first()
 
-    def get_user_by_name(self, name):
-        return self.session.query(User).filter_by(name=name).first()
+    def get_client_by_name(self, name):
+        return self.session.query(Client).filter_by(name=name).first()
 
-    def add_user(self, name=None, mail=None, api="", admin=False):
-        user = User(api_key=api, name=name, mail=mail,
-                    id=self.total_users()+1, is_admin=admin)
+    def add_client(self, name=None, mail=None, api="", admin=False):
+        user = Client(api_key=api, name=name, mail=mail,
+                      id=self.total_clients() + 1, is_admin=admin)
         self.session.add(user)
         return self.commit()
 
-    def total_users(self):
-        return self.session.query(User).count()
+    def total_clients(self):
+        return self.session.query(Client).count()
 
     def commit(self):
         try:
@@ -88,10 +88,10 @@ class UserDatabase(object):
 
 
 if __name__ == "__main__":
-    db = UserDatabase(debug=True)
+    db = ClientDatabase(debug=True)
     name = "jarbas"
     mail = "jarbasaai@mailfence.com"
     api = "admin_key"
-    db.add_user(name, mail, api, admin=True)
+    db.add_client(name, mail, api, admin=True)
 
 

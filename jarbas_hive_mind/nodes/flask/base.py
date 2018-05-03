@@ -9,7 +9,7 @@ from jarbas_hive_mind.nodes.flask import request, Response
 from flask_sslify import SSLify
 
 from jarbas_hive_mind.nodes import gen_api
-from jarbas_hive_mind.database.user import UserDatabase
+from jarbas_hive_mind.database.client import ClientDatabase
 
 
 def root_dir():
@@ -27,7 +27,7 @@ sslify = SSLify(app)
 port = 5678
 
 
-users = UserDatabase()
+users = ClientDatabase()
 
 
 def add_response_headers(headers=None):
@@ -64,7 +64,7 @@ def donation(f):
 
 def check_auth(api_key):
     """This function is called to check if a api key is valid."""
-    user = users.get_user_by_api_key(api_key)
+    user = users.get_client_by_api_key(api_key)
     if not user:
         return False
     users.update_timestamp(api_key, time.time())
@@ -73,7 +73,7 @@ def check_auth(api_key):
 
 def check_admin_auth(api_key):
     """This function is called to check if a admin api key is valid."""
-    user = users.get_user_by_api_key(api_key)
+    user = users.get_client_by_api_key(api_key)
     if not user:
         return False
     if not user.is_admin:
@@ -130,7 +130,7 @@ def hello():
 @donation
 @requires_admin
 def revoke_api(api):
-    if users.delete_user(api):
+    if users.delete_client(api):
         result = {"removed": True}
     else:
         result = {"removed": False, "error": "does not exist"}
@@ -145,7 +145,7 @@ def revoke_api(api):
 @requires_admin
 def add_user(api, mail, name):
     result = {"success": False}
-    if users.add_user(name, mail, api):
+    if users.add_client(name, mail, api):
         result = {"success": True}
     return nice_json(
         result

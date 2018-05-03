@@ -1,22 +1,5 @@
 #!/usr/bin/env python
 #-*- coding:utf-8 -*-
-# Copyright 2016 Mycroft AI, Inc.
-#
-# This file is part of Mycroft Core.
-#
-# Mycroft Core is free software: you can redistribute it and/or modify
-# it under the terms of the GNU General Public License as published by
-# the Free Software Foundation, either version 3 of the License, or
-# (at your option) any later version.
-#
-# Mycroft Core is distributed in the hope that it will be useful,
-# but WITHOUT ANY WARRANTY; without even the implied warranty of
-# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-# GNU General Public License for more details.
-#
-# You should have received a copy of the GNU General Public License
-# along with Mycroft Core.  If not, see <http://www.gnu.org/licenses/>.
-
 from mycroft.util import create_signal
 from mycroft.util.log import LOG
 from mycroft.configuration import Configuration
@@ -29,7 +12,7 @@ import tornado.web
 import tornado.options
 import os
 from subprocess import check_output
-from os.path import dirname
+from os.path import dirname, expanduser
 
 import sys
 from threading import Thread
@@ -105,19 +88,16 @@ class WebSocketHandler(tornado.websocket.WebSocketHandler):
         clients.pop(self.peer)
 
 
-if __name__ == '__main__':
+def launch(config=None):
     import tornado.options
 
-    config = Configuration.get().get("webchat", {})
+    config = config or Configuration.get().get("hivemind", {}).get("webchat_node", {})
     port = config.get("port", 8286)
-    ssl = config.get("ssl", True)
-    cert = config.get("cert_file",
-                      dirname(dirname(__file__)) + '/certs/JarbasServer.crt')
-    key = config.get("key_file",
-                     dirname(dirname(__file__)) + '/certs/JarbasServer.key')
+    ssl = config.get("ssl", False)
+    cert = config.get("cert_file", expanduser('~/.mycroft/hivemind/certs/default.crt'))
+    key = config.get("key_file", expanduser('~/.mycroft/hivemind/certs/default.key'))
 
     tornado.options.parse_command_line()
-
 
     routes = [
         tornado.web.url(r"/", MainHandler, name="main"),
@@ -148,6 +128,9 @@ if __name__ == '__main__':
     print "*   Access from web browser " + url
     print "*********************************************************"
 
-
     httpServer.listen(port)
     tornado.ioloop.IOLoop.instance().start()
+
+
+if __name__ == '__main__':
+    launch()

@@ -18,7 +18,7 @@ class JarbasClientProtocol(WebSocketClientProtocol):
 
     def onConnect(self, response):
         logger.info("Server connected: {0}".format(response.peer))
-        self.factory.emitter.emit(Message("server.connected",
+        self.factory.emitter.emit(Message("hivemind.mind.connected",
                                           {"server_id": response.headers[
                                               "server"]}))
         self.factory.client = self
@@ -26,7 +26,7 @@ class JarbasClientProtocol(WebSocketClientProtocol):
 
     def onOpen(self):
         logger.info("WebSocket connection open. ")
-        self.factory.emitter.emit(Message("server.websocket.open"))
+        self.factory.emitter.emit(Message("hivemind.mind.websocket.open"))
 
     def onMessage(self, payload, isBinary):
         logger.info("status: " + self.factory.status)
@@ -34,12 +34,12 @@ class JarbasClientProtocol(WebSocketClientProtocol):
             data = {"payload": payload, "isBinary": isBinary}
         else:
             data = {"payload": None, "isBinary": isBinary}
-        self.factory.emitter.emit(Message("server.message.received",
+        self.factory.emitter.emit(Message("hivemind.mind.message.received",
                                   data))
 
     def onClose(self, wasClean, code, reason):
         logger.info("WebSocket connection closed: {0}".format(reason))
-        self.factory.emitter.emit(Message("server.connection.closed",
+        self.factory.emitter.emit(Message("hivemind.mind.connection.closed",
                                   {"wasClean": wasClean,
                                    "reason": reason,
                                    "code": code}))
@@ -58,12 +58,12 @@ class JarbasClientProtocol(WebSocketClientProtocol):
 class JarbasClientFactory(WebSocketClientFactory, ReconnectingClientFactory):
     protocol = JarbasClientProtocol
 
-    def __init__(self, *args, **kwargs):
+    def __init__(self, emitter=None, *args, **kwargs):
         super(JarbasClientFactory, self).__init__(*args, **kwargs)
         self.client = None
         self.status = "disconnected"
         # mycroft_ws
-        self.emitter = None
+        self.emitter = emitter
         self.emitter_thread = None
         self.create_internal_emitter()
 
@@ -73,16 +73,22 @@ class JarbasClientFactory(WebSocketClientFactory, ReconnectingClientFactory):
 
     def create_internal_emitter(self):
         # connect to mycroft internal websocket
-        self.emitter = WebsocketClient()
+        self.emitter = self.emitter or WebsocketClient()
         self.register_internal_messages()
         self.emitter_thread = Thread(target=self.connect_to_internal_emitter)
         self.emitter_thread.setDaemon(True)
         self.emitter_thread.start()
 
     def register_internal_messages(self):
-        self.emitter.on("server.message.received",
+        self.emitter.on("hivemind.mind.message.received",
                         self.handle_receive_server_message)
-        self.emitter.on("server.message.send",
+        self.emitter.on("hivemind.mind.message.send",
+                        self.handle_send_server_message)
+
+    def shutdown(self):
+        self.emitter.remove("hivemind.mind.message.received",
+                        self.handle_receive_server_message)
+        self.emitter.remove("hivemind.mind.message.send",
                         self.handle_send_server_message)
 
     # websocket handlers
@@ -134,7 +140,7 @@ class JarbasClientFactory(WebSocketClientFactory, ReconnectingClientFactory):
             context = {}
         msg = self.client.Message_to_raw_data(Message(type, data, context))
         self.client.sendMessage(msg, isBinary=False)
-        self.emitter.emit(Message("server.message.sent",
+        self.emitter.emit(Message("hivemind.mind.message.sent",
                                   {"type": type,
                                    "data": data,
                                    "context": context,
@@ -143,13 +149,13 @@ class JarbasClientFactory(WebSocketClientFactory, ReconnectingClientFactory):
 
 def connect_to_hivemind(host="127.0.0.1",
                         port=5678, name="Jarbas Drone",
-                        api="test_key", useragent=platform):
+                        api="test_key", useragent=platform, emitter=None):
     authorization = name + ":" + api
     usernamePasswordDecoded = authorization
     api = base64.b64encode(usernamePasswordDecoded)
     headers = {'authorization': api}
     address = u"wss://" + host + u":" + str(port)
-    factory = JarbasClientFactory(address, headers=headers,
+    factory = JarbasClientFactory(address, emitter=emitter, headers=headers,
                                   useragent=useragent)
     factory.protocol = JarbasClientProtocol
     contextFactory = ssl.ClientContextFactory()
