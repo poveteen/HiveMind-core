@@ -1,4 +1,4 @@
-## Jarbas Hive Mind
+## Jarbas Mycroft Hive
 
 Join the mycroft collective, utils for mycroft-core mesh networking
 
