@@ -4,11 +4,11 @@ Join the mycroft collective, utils for mycroft-core mesh networking
 
 ## Components
 
-- [Minds]()
-- [Drones]()
-- [Nodes]()
-- [Terminals]()
-- [Bridges]()
+- [Minds](https://github.com/JarbasAl/hive_mind/tree/master/jarbas_hive_mind/minds)
+- [Drones](https://github.com/JarbasAl/hive_mind/tree/master/jarbas_hive_mind/drones)
+- [Nodes](https://github.com/JarbasAl/hive_mind/tree/master/jarbas_hive_mind/nodes)
+- [Terminals](https://github.com/JarbasAl/hive_mind/tree/master/jarbas_hive_mind/terminals)
+- [Bridges](https://github.com/JarbasAl/hive_mind/tree/master/jarbas_hive_mind/bridges)
 
 ## Concept
 
@@ -24,6 +24,7 @@ Set of 3 skills
 
 
 minds parse and filters requests, connecting clients require api keys
+
 drones - pass the bus message along every time, blindly trust hive mind orders
 
 
@@ -38,6 +39,7 @@ Building your own Hive
 - Create a chatbot, demo for [hack.chat](https://hack.chat/?JarbasAI) and [twitch](https://www.twitch.tv/jarbasai)
 - Create a private distributed mycroft network
 - Chat rooms / Intercom
+- Send binary data across mycroft instances, for example a picture from a camera to a face recognition server
 - Ask public hiveminds on fallback, i got a skill installed that solves your problem? you got the answer
 - Turn any internet enabled device on a mycroft enabled component
 - Talk with mycroft anywhere
