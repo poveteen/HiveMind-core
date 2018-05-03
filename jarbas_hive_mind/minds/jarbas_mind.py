@@ -214,7 +214,7 @@ class JarbasServerFactory(WebSocketServerFactory):
             client.sendMessage(payload, False)
         else:
             logger.error("That client is not connected")
-            self.emitter_send("hive.mind.send.error",
+            self.emitter_send("hive.client.send.error",
                               {"error": "That client is not connected",
                                "peer": peer}, message.context)
 
