@@ -1,3 +1,4 @@
+from builtins import next
 from mycroft.skills.intent_service import IntentService, normalize, LOG, open_intent_envelope
 
 
@@ -32,7 +33,7 @@ class MicroIntentService(IntentService):
         self.engine.register_intent_parser(intent)
         skill_id, intent = message.data.get("name", "None:None").split(":")
         LOG.info("Registered: " + intent)
-        if skill_id not in self.intent_map.keys():
+        if skill_id not in list(self.intent_map.keys()):
             self.intent_map[skill_id] = []
         self.intent_map[skill_id].append(intent)
 

@@ -1,3 +1,4 @@
+from builtins import str
 import base64
 import json
 from threading import Thread

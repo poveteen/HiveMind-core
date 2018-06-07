@@ -1,4 +1,6 @@
 #!/usr/bin/env python
+from __future__ import print_function
+from builtins import str
 import base64
 import json
 import logging
@@ -85,9 +87,9 @@ class JarbasWebChatClientProtocol(WebSocketClientProtocol):
 
         tornado.options.parse_command_line()
 
-        print "*********************************************************"
-        print "*   Access from web browser " + url
-        print "*********************************************************"
+        print("*********************************************************")
+        print("*   Access from web browser " + url)
+        print("*********************************************************")
 
         httpServer.listen(port)
         tornado.ioloop.IOLoop.instance().start()

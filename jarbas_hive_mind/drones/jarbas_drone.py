@@ -1,3 +1,4 @@
+from builtins import str
 import json
 from threading import Thread
 import base64
@@ -18,7 +19,7 @@ class JarbasClientProtocol(WebSocketClientProtocol):
 
     def onConnect(self, response):
         logger.info("Server connected: {0}".format(response.peer))
-        self.factory.emitter.emit(Message("hivemind.mind.connected",
+        self.factory.emitter.emit(Message("hive.mind.connected",
                                           {"server_id": response.headers[
                                               "server"]}))
         self.factory.client = self
@@ -26,7 +27,7 @@ class JarbasClientProtocol(WebSocketClientProtocol):
 
     def onOpen(self):
         logger.info("WebSocket connection open. ")
-        self.factory.emitter.emit(Message("hivemind.mind.websocket.open"))
+        self.factory.emitter.emit(Message("hive.mind.websocket.open"))
 
     def onMessage(self, payload, isBinary):
         logger.info("status: " + self.factory.status)
@@ -34,12 +35,12 @@ class JarbasClientProtocol(WebSocketClientProtocol):
             data = {"payload": payload, "isBinary": isBinary}
         else:
             data = {"payload": None, "isBinary": isBinary}
-        self.factory.emitter.emit(Message("hivemind.mind.message.received",
+        self.factory.emitter.emit(Message("hive.mind.message.received",
                                   data))
 
     def onClose(self, wasClean, code, reason):
         logger.info("WebSocket connection closed: {0}".format(reason))
-        self.factory.emitter.emit(Message("hivemind.mind.connection.closed",
+        self.factory.emitter.emit(Message("hive.mind.connection.closed",
                                   {"wasClean": wasClean,
                                    "reason": reason,
                                    "code": code}))
@@ -80,15 +81,15 @@ class JarbasClientFactory(WebSocketClientFactory, ReconnectingClientFactory):
         self.emitter_thread.start()
 
     def register_internal_messages(self):
-        self.emitter.on("hivemind.mind.message.received",
+        self.emitter.on("hive.mind.message.received",
                         self.handle_receive_server_message)
-        self.emitter.on("hivemind.mind.message.send",
+        self.emitter.on("hive.mind.message.send",
                         self.handle_send_server_message)
 
     def shutdown(self):
-        self.emitter.remove("hivemind.mind.message.received",
+        self.emitter.remove("hive.mind.message.received",
                         self.handle_receive_server_message)
-        self.emitter.remove("hivemind.mind.message.send",
+        self.emitter.remove("hive.mind.message.send",
                         self.handle_send_server_message)
 
     # websocket handlers
@@ -140,7 +141,7 @@ class JarbasClientFactory(WebSocketClientFactory, ReconnectingClientFactory):
             context = {}
         msg = self.client.Message_to_raw_data(Message(type, data, context))
         self.client.sendMessage(msg, isBinary=False)
-        self.emitter.emit(Message("hivemind.mind.message.sent",
+        self.emitter.emit(Message("hive.mind.message.sent",
                                   {"type": type,
                                    "data": data,
                                    "context": context,

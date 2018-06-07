@@ -1,3 +1,4 @@
+from builtins import object
 from sqlalchemy import Column, Text, String, Integer, create_engine, Boolean
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.exc import IntegrityError

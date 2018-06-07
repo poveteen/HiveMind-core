@@ -1,6 +1,11 @@
-## Hive Mind
+## Hive Minds
 
-listen for secure websocket connection, interact with mycroft-core  message bus
+listen for secure websocket connection, interacts with a mycroft-core message bus
+
+sends orders to drones
+
+processes requests from drones
+
 
 ## Message Bus API
 
@@ -24,7 +29,7 @@ listens for
 add a section to your config file (optional)
 
     "hivemind": {
-        "mind": {
+        "master mind": {
             "port": 5678,
             "max_connections": -1,
             "ssl": True,

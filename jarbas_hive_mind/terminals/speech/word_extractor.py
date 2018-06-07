@@ -1,3 +1,4 @@
+from __future__ import division
 # Copyright 2017 Mycroft AI Inc.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -12,10 +13,12 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
+from builtins import object
+from past.utils import old_div
 from speech_recognition import AudioData
 
 
-class WordExtractor:
+class WordExtractor(object):
     SILENCE_SECS = 0.1
     PRECISION_RATE = 0.01
 
@@ -23,7 +26,7 @@ class WordExtractor:
         self.audio = audio
         self.recognizer = recognizer
         self.audio_size = len(self.audio.frame_data)
-        self.delta = int(self.audio_size / 2)
+        self.delta = int(old_div(self.audio_size, 2))
         self.begin = 0
         self.end = self.audio_size
         self.precision = int(self.audio_size * self.PRECISION_RATE)
@@ -48,7 +51,7 @@ class WordExtractor:
             found = self.recognizer.is_recognized(segment, self.metrics)
             if not found:
                 self.__add(is_begin, dt * -sign)
-            dt = int(dt / 2)
+            dt = int(old_div(dt, 2))
 
     def calculate_range(self):
         self.__calculate_marker(False)

@@ -1,3 +1,4 @@
+from __future__ import print_function
 import json
 import os
 import ssl
@@ -39,7 +40,7 @@ def add_response_headers(headers=None):
         def decorated_function(*args, **kwargs):
             resp = make_response(f(*args, **kwargs))
             h = resp.headers
-            for header, value in headers.items():
+            for header, value in list(headers.items()):
                 h[header] = value
             return resp
 
@@ -106,7 +107,7 @@ def requires_admin(f):
     def decorated(*args, **kwargs):
         auth = request.headers.get('Authorization', '')
         if not auth or not check_admin_auth(auth):
-            print "not admin"
+            print("not admin")
             return authenticate()
         return f(*args, **kwargs)
 

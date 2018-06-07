@@ -1,3 +1,4 @@
+from builtins import object
 import os
 from os.path import join, dirname, isdir, isfile, exists, abspath, splitext, basename
 

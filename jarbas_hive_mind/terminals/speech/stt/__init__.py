@@ -1,3 +1,4 @@
+from __future__ import print_function
 # Copyright 2017 Mycroft AI Inc.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -12,12 +13,15 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
+from builtins import str
+from builtins import object
 import json
 import re
 from abc import ABCMeta, abstractmethod
 from requests import post
 
 from speech_recognition import Recognizer
+from future.utils import with_metaclass
 
 conf = {"lang": "en-us",
         "stt": {
@@ -31,9 +35,7 @@ conf = {"lang": "en-us",
         }}
 
 
-class STT(object):
-    __metaclass__ = ABCMeta
-
+class STT(with_metaclass(ABCMeta, object)):
     def __init__(self):
         config_core = conf
         self.lang = str(self.init_language(config_core))
@@ -55,9 +57,7 @@ class STT(object):
         pass
 
 
-class TokenSTT(STT):
-    __metaclass__ = ABCMeta
-
+class TokenSTT(with_metaclass(ABCMeta, STT)):
     def __init__(self):
         super(TokenSTT, self).__init__()
         # do not string cast, if token is none uses default test key
@@ -65,26 +65,20 @@ class TokenSTT(STT):
         self.token = self.credential.get("token")
 
 
-class GoogleJsonSTT(STT):
-    __metaclass__ = ABCMeta
-
+class GoogleJsonSTT(with_metaclass(ABCMeta, STT)):
     def __init__(self):
         super(GoogleJsonSTT, self).__init__()
         self.json_credentials = json.dumps(self.credential.get("json"))
 
 
-class BasicSTT(STT):
-    __metaclass__ = ABCMeta
-
+class BasicSTT(with_metaclass(ABCMeta, STT)):
     def __init__(self):
         super(BasicSTT, self).__init__()
         self.username = str(self.credential.get("username"))
         self.password = str(self.credential.get("password"))
 
 
-class KeySTT(STT):
-    __metaclass__ = ABCMeta
-
+class KeySTT(with_metaclass(ABCMeta, STT)):
     def __init__(self):
         super(KeySTT, self).__init__()
         self.id = str(self.credential.get("client_id"))

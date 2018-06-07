@@ -1,3 +1,4 @@
+from builtins import str
 __author__ = "jarbas"
 
 import os
@@ -19,7 +20,7 @@ def gen_api(user="demo_user", save=False):
     else:
         with open(join(db_dir, "users.json"), "r") as f:
             users = json.load(f)
-    while k in users.keys():
+    while k in list(users.keys()):
         k = gen_api(user)
     k = k[:-1]
     if save:
@@ -42,7 +43,7 @@ def gen_admin_api(user="admin", save=False):
     else:
         with open(join(db_dir, "admins.json"), "r") as f:
             users = json.load(f)
-    while k in users.keys():
+    while k in list(users.keys()):
         k = gen_api(user)
     k = k[:-1]
     if save:

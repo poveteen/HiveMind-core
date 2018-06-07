@@ -1,3 +1,4 @@
+from builtins import str
 from os.path import exists, dirname, expanduser
 from threading import Thread
 import os
@@ -162,7 +163,7 @@ class JarbasServerFactory(WebSocketServerFactory):
        Remove client from list of managed connections.
        """
         logger.info("deregistering client: " + str(client.peer))
-        if client.peer in self.clients.keys():
+        if client.peer in list(self.clients.keys()):
             client_data = self.clients[client.peer] or {}
             j, ip, sock_num = " ", "", "" # client.peer.split(":")
             context = {"user": client_data.get("names", ["unknown_user"])[0],
@@ -250,12 +251,12 @@ class JarbasServerFactory(WebSocketServerFactory):
 
 def start_mind(config=None, emitter=None):
     # server
-    config = config or Configuration.get().get("hivemind", {}).get("mind", {})
+    config = config or Configuration.get().get("hivemind", {}).get("master mind", {})
     host = config.get("host", "0.0.0.0")
     port = config.get("port", 5678)
     use_ssl = config.get("ssl", False)
     max_connections = config.get("max_connections", -1)
-    adress = u"wss://" + unicode(host) + u":" + unicode(port)
+    adress = u"wss://" + str(host) + u":" + str(port)
     cert = config.get("cert_file", expanduser('~/.mycroft/hivemind/certs/default.crt'))
     key = config.get("key_file", expanduser('~/.mycroft/hivemind/certs/default.key'))
 

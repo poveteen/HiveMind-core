@@ -1,3 +1,5 @@
+from __future__ import division
+from __future__ import print_function
 # Copyright 2017 Mycroft AI Inc.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -12,6 +14,9 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
+from builtins import str
+from past.utils import old_div
+from builtins import object
 import audioop
 import collections
 import datetime
@@ -248,7 +253,7 @@ class ResponsiveRecognizer(speech_recognition.Recognizer):
         # The maximum audio in seconds to keep for transcribing a phrase
         # The wake word must fit in this time
         num_phonemes = wake_word_recognizer.num_phonemes
-        len_phoneme = listener_config.get('phoneme_duration', 120) / 1000.0
+        len_phoneme = old_div(listener_config.get('phoneme_duration', 120), 1000.0)
         self.TEST_WW_SEC = num_phonemes * len_phoneme
         self.SAVED_WW_SEC = 10 if self.save_wake_words else self.TEST_WW_SEC
 
@@ -299,15 +304,15 @@ class ResponsiveRecognizer(speech_recognition.Recognizer):
             return level
 
         # Smallest number of loud chunks required to return
-        min_loud_chunks = int(self.MIN_LOUD_SEC_PER_PHRASE / sec_per_buffer)
+        min_loud_chunks = int(old_div(self.MIN_LOUD_SEC_PER_PHRASE, sec_per_buffer))
 
         # Maximum number of chunks to record before timing out
-        max_chunks = int(self.RECORDING_TIMEOUT / sec_per_buffer)
+        max_chunks = int(old_div(self.RECORDING_TIMEOUT, sec_per_buffer))
         num_chunks = 0
 
         # Will return if exceeded this even if there's not enough loud chunks
-        max_chunks_of_silence = int(self.RECORDING_TIMEOUT_WITH_SILENCE /
-                                    sec_per_buffer)
+        max_chunks_of_silence = int(old_div(self.RECORDING_TIMEOUT_WITH_SILENCE,
+                                    sec_per_buffer))
 
         # bytearray to store audio in
         byte_data = get_silence(source.SAMPLE_WIDTH)
@@ -427,7 +432,7 @@ class ResponsiveRecognizer(speech_recognition.Recognizer):
         # bytearray to store audio in
         byte_data = silence
 
-        buffers_per_check = self.SEC_BETWEEN_WW_CHECKS / sec_per_buffer
+        buffers_per_check = old_div(self.SEC_BETWEEN_WW_CHECKS, sec_per_buffer)
         buffers_since_check = 0.0
 
         # Max bytes for byte_data before audio is removed from the front
@@ -442,7 +447,7 @@ class ResponsiveRecognizer(speech_recognition.Recognizer):
         energies = []
         idx_energy = 0
         avg_energy = 0.0
-        energy_avg_samples = int(5 / sec_per_buffer)  # avg over last 5 secs
+        energy_avg_samples = int(old_div(5, sec_per_buffer))  # avg over last 5 secs
 
         ww_module = self.wake_word_recognizer.__class__.__name__
         if ww_module == 'PreciseHotword':
@@ -464,11 +469,11 @@ class ResponsiveRecognizer(speech_recognition.Recognizer):
             if len(energies) < energy_avg_samples:
                 # build the average
                 energies.append(energy)
-                avg_energy += float(energy) / energy_avg_samples
+                avg_energy += old_div(float(energy), energy_avg_samples)
             else:
                 # maintain the running average and rolling buffer
-                avg_energy -= float(energies[idx_energy]) / energy_avg_samples
-                avg_energy += float(energy) / energy_avg_samples
+                avg_energy -= old_div(float(energies[idx_energy]), energy_avg_samples)
+                avg_energy += old_div(float(energy), energy_avg_samples)
                 energies[idx_energy] = energy
                 idx_energy = (idx_energy + 1) % energy_avg_samples
 
@@ -610,7 +615,7 @@ class ResponsiveRecognizer(speech_recognition.Recognizer):
         assert isinstance(source, AudioSource), "Source must be an AudioSource"
 
         #        bytes_per_sec = source.SAMPLE_RATE * source.SAMPLE_WIDTH
-        sec_per_buffer = float(source.CHUNK) / source.SAMPLE_RATE
+        sec_per_buffer = old_div(float(source.CHUNK), source.SAMPLE_RATE)
 
         # Every time a new 'listen()' request begins, reset the threshold
         # used for silence detection.  This is as good of a reset point as
