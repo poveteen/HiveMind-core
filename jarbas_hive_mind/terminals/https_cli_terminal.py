@@ -1,6 +1,3 @@
-from builtins import input
-from builtins import str
-from builtins import object
 import json
 import requests
 import time
@@ -202,7 +199,7 @@ class JarbasMicroServicesAPI(object):
 def connect_to_hivenode(key="test_key", url="https://0.0.0.0:6712/"):
     ap = JarbasMicroServicesAPI(key, url)
     while True:
-        line = input("Input: ")
+        line = raw_input("Input: ")
         res = ap.ask_mycroft(line.lower())
         logger.info("Jarbas: ", res.get("data", {}).get("utterance", "does not compute"))
 

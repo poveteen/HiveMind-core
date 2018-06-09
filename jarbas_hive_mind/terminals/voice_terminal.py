@@ -1,4 +1,3 @@
-from builtins import str
 from threading import Thread
 
 from autobahn.twisted.websocket import WebSocketClientFactory, \

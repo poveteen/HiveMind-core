@@ -1,7 +1,5 @@
 #!/usr/bin/env python
 #-*- coding:utf-8 -*-
-from __future__ import print_function
-from builtins import str
 from mycroft.util import create_signal
 from mycroft.util.log import LOG
 from mycroft.configuration import Configuration
@@ -126,9 +124,9 @@ def launch(config=None):
 
     tornado.options.parse_command_line()
 
-    print("*********************************************************")
-    print("*   Access from web browser " + url)
-    print("*********************************************************")
+    print "*********************************************************"
+    print "*   Access from web browser " + url
+    print "*********************************************************"
 
     httpServer.listen(port)
     tornado.ioloop.IOLoop.instance().start()

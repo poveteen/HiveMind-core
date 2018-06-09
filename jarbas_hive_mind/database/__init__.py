@@ -12,5 +12,5 @@ def model_to_dict(obj):
 
 
 def props(cls):
-    return [i for i in list(cls.__dict__.keys()) if i[:1] != '_']
+    return [i for i in cls.__dict__.keys() if i[:1] != '_']
 

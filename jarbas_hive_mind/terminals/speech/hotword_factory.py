@@ -1,5 +1,3 @@
-from __future__ import division
-from __future__ import print_function
 # Copyright 2017 Mycroft AI Inc.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -14,12 +12,6 @@ from __future__ import print_function
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
-from future import standard_library
-standard_library.install_aliases()
-from builtins import zip
-from builtins import str
-from builtins import object
-from past.utils import old_div
 import os
 import sys
 import tempfile
@@ -81,7 +73,7 @@ class HotWordEngine(object):
     def __init__(self, key_phrase="hey mycroft", config=None, lang="en-us"):
         self.key_phrase = str(key_phrase).lower()
         # rough estimate 1 phoneme per 2 chars
-        self.num_phonemes = old_div(len(key_phrase), 2) + 1
+        self.num_phonemes = len(key_phrase) / 2 + 1
         if config is None:
             config = conf.get("hotwords", {})
             config = config.get(self.key_phrase, {})
@@ -238,7 +230,7 @@ class PreciseHotword(HotWordEngine):
         if sys.version_info[0] >= 3:
             from urllib.request import urlopen
         else:
-            from urllib.request import urlopen
+            from urllib2 import urlopen
         print('Downloading: ' + url)
         req = urlopen(url)
         with open(filename, 'wb') as fp:

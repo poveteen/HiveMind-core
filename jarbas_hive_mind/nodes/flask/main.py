@@ -1,5 +1,3 @@
-from __future__ import print_function
-from builtins import str
 from threading import Thread
 
 from jarbas_hive_mind.nodes.flask.base import *
@@ -74,7 +72,7 @@ def cancel_answer():
     ip = request.remote_addr
     user = request.headers["Authorization"]
     user_id = str(ip) + ":" + str(user)
-    if user_id in list(users_on_hold.keys()):
+    if user_id in users_on_hold.keys():
         users_on_hold.pop(user_id)
         answers.pop(user_id)
     result = {"status": "canceled"}
@@ -127,15 +125,15 @@ def listener(message):
     global users_on_hold, answers
     message.context = message.context or {}
     user = message.context.get("user_id", "")
-    print("listen", user)
-    if user in list(users_on_hold.keys()):  # are we waiting to answer this user?
+    print "listen", user
+    if user in users_on_hold.keys():  # are we waiting to answer this user?
         if answers[user] is not None:
             # update data and context
-            for k in list(message.context.keys()):
+            for k in message.context.keys():
                 if k == "client_name" and ":https_server" not in message.context[k]:
                     message.context["client_name"] += ":https_server"
                 answers[user]["context"][k] = message.context[k]
-            for k in list(message.data.keys()):
+            for k in message.data.keys():
                 # update utterance
                 if k == "utterance":
                     answers[user]["data"]["utterance"] = \
@@ -154,8 +152,8 @@ def end_wait(message):
     ''' stop capturing answers for this user '''
     global users_on_hold, answers
     user = message.context.get("user_id", "")
-    print("end", user)
-    if user in list(users_on_hold.keys()):
+    print "end", user
+    if user in users_on_hold.keys():
         # mark as answered
         users_on_hold[user] = True
         # process possible failure scenarios

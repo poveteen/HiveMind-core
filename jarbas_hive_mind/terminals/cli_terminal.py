@@ -1,5 +1,3 @@
-from builtins import str
-from builtins import input
 import json
 import logging
 import sys
@@ -48,7 +46,7 @@ class JarbasCliClientProtocol(WebSocketClientProtocol):
     # cli input thread
     def get_cli_input(self):
         while True:
-            line = input("Input: ")
+            line = raw_input("Input: ")
             msg = {"data": {"utterances": [line], "lang": "en-us"},
                    "type": "recognizer_loop:utterance",
                    "context": {"source": self.peer, "destinatary":

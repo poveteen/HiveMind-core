@@ -1,5 +1,3 @@
-from __future__ import print_function
-from builtins import str
 import json
 import logging
 import sys
@@ -100,7 +98,7 @@ class JarbasTwitchClientProtocol(WebSocketClientProtocol):
                         # Sets the username variable to the actual username
                         usernamesplit = string.split(parts[1], "!")
                         username = usernamesplit[0]
-                        print(message)
+                        print message
                         if "@" + self.NICK in message:
                             message = message.replace("@" + self.NICK, "")
                             # Only works after twitch is done announcing stuff (MODT = Message of the day)

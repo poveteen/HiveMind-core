@@ -1,5 +1,3 @@
-from __future__ import division
-from __future__ import print_function
 # Copyright 2017 Mycroft AI Inc.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -14,11 +12,6 @@ from __future__ import print_function
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
-from future import standard_library
-standard_library.install_aliases()
-from builtins import str
-from builtins import object
-from past.utils import old_div
 import sys
 import time
 from requests import RequestException, HTTPError
@@ -32,7 +25,7 @@ from jarbas_hive_mind.terminals.speech.stt import STTFactory
 from pyee import EventEmitter
 
 if sys.version_info[0] < 3:
-    from queue import Queue, Empty
+    from Queue import Queue, Empty
 else:
     from queue import Queue, Empty
 
@@ -149,8 +142,8 @@ class AudioConsumer(Thread):
 
     @staticmethod
     def _audio_length(audio):
-        return old_div(float(len(audio.frame_data)), (
-            audio.sample_rate * audio.sample_width))
+        return float(len(audio.frame_data)) / (
+            audio.sample_rate * audio.sample_width)
 
     # TODO: Localization
     def process(self, audio):
