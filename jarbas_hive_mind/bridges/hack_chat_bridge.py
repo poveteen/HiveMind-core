@@ -1,10 +1,10 @@
 import base64
 import json
+import logging
 import random
 import sys
 from threading import Thread
 from time import sleep
-import logging
 
 import hclib
 from autobahn.twisted.websocket import WebSocketClientFactory, \
@@ -97,7 +97,7 @@ class JarbasHackChatClientProtocol(WebSocketClientProtocol):
                                    "hack_chat_nick": user, "user": user,
                                    "target": "hackchat"}}
                 msg = json.dumps(msg)
-                self.sendMessage(msg, False)
+                self.sendMessage(bytes(msg, "utf-8"), False)
         else:
             logger.debug(str(data))
 
@@ -122,6 +122,7 @@ class JarbasHackChatClientProtocol(WebSocketClientProtocol):
 
     def onMessage(self, payload, isBinary):
         if not isBinary:
+            payload = payload.decode("utf-8")
             msg = json.loads(payload)
             user = msg.get("context", {}).get("hack_chat_nick", "")
             if user not in self.online_users:
@@ -156,13 +157,13 @@ class JarbasHackChatClientProtocol(WebSocketClientProtocol):
 
 class JarbasHackChatClientFactory(WebSocketClientFactory, ReconnectingClientFactory):
     protocol = JarbasHackChatClientProtocol
+    username = "jarbasLebot"
+    channel = "JarbasBotDemoBridge"
 
-    def __init__(self, username, channel, *args, **kwargs):
+    def __init__(self, *args, **kwargs):
         super(JarbasHackChatClientFactory, self).__init__(*args, **kwargs)
         self.status = "disconnected"
         self.client = None
-        self.username = username
-        self.channel = channel
 
     # websocket handlers
     def clientConnectionFailed(self, connector, reason):
@@ -179,12 +180,14 @@ class JarbasHackChatClientFactory(WebSocketClientFactory, ReconnectingClientFact
 def connect_to_hackchat(channel, username="Jarbas_BOT", host="127.0.0.1",
                         port=5678, name="Standalone HackChat Bridge", api="test_key", useragent=platform):
     authorization = name + ":" + api
-    usernamePasswordDecoded = authorization
+    usernamePasswordDecoded = bytes(authorization, "utf-8")
     api = base64.b64encode(usernamePasswordDecoded)
     headers = {'authorization': api}
     address = u"wss://" + host + u":" + str(port)
-    factory = JarbasHackChatClientFactory(address, channel=channel, username=username, headers=headers,
+    factory = JarbasHackChatClientFactory(address, headers=headers,
                                           useragent=useragent)
+    factory.channel = channel
+    factory.username = username
     factory.protocol = JarbasHackChatClientProtocol
     contextFactory = ssl.ClientContextFactory()
     reactor.connectSSL(host, port, factory, contextFactory)
@@ -193,4 +196,5 @@ def connect_to_hackchat(channel, username="Jarbas_BOT", host="127.0.0.1",
 
 if __name__ == '__main__':
     # TODO arg parse
-    connect_to_hackchat("JarbasAI_" + random.choice("qwertyuiopplkjhgfdsazxcvbnm") * 10)
+    connect_to_hackchat("JarbasAI_" + 10 * random.choice(
+        "qwertyuiopplkjhgfdsazxcvbnm"))

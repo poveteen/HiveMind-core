@@ -4,12 +4,11 @@ import ssl
 import time
 from functools import wraps
 
-from jarbas_hive_mind.nodes.flask import Flask, make_response
-from jarbas_hive_mind.nodes.flask import request, Response
+from flask import Flask, make_response, request, Response
 from flask_sslify import SSLify
 
-from jarbas_hive_mind.nodes import gen_api
 from jarbas_hive_mind.database.client import ClientDatabase
+from jarbas_hive_mind.nodes import gen_api
 
 
 def root_dir():
@@ -106,7 +105,7 @@ def requires_admin(f):
     def decorated(*args, **kwargs):
         auth = request.headers.get('Authorization', '')
         if not auth or not check_admin_auth(auth):
-            print "not admin"
+            print("not admin")
             return authenticate()
         return f(*args, **kwargs)
 
@@ -163,9 +162,9 @@ def new_api():
     )
 
 
-def start(app, port=6666):
-    cert = "{}/certs/JarbasServer.crt".format(root_dir())
-    key = "{}/certs/JarbasServer.key".format(root_dir())
+def start(app, port=6669):
+    cert = "{}/certs/default.crt".format(root_dir())
+    key = "{}/certs/default.key".format(root_dir())
     context = ssl.SSLContext(ssl.PROTOCOL_TLSv1_2)
     context.load_cert_chain(cert, key)
     app.run(host="0.0.0.0", port=port, debug=False, ssl_context=context)

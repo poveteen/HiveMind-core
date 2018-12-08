@@ -1,30 +1,32 @@
 #!/usr/bin/env python
 #-*- coding:utf-8 -*-
-from mycroft.util import create_signal
-from mycroft.util.log import LOG
+# from mycroft.util import create_signal
+import logging
+import os
+import sys
+from os.path import expanduser
+from subprocess import check_output
+from threading import Thread
+
+import tornado.httpserver
+import tornado.ioloop
+import tornado.options
+import tornado.web
+import tornado.websocket
 from mycroft.configuration import Configuration
 from mycroft.messagebus.client.ws import WebsocketClient
 from mycroft.messagebus.message import Message
-import tornado.httpserver
-import tornado.websocket
-import tornado.ioloop
-import tornado.web
-import tornado.options
-import os
-from subprocess import check_output
-from os.path import dirname, expanduser
-
-import sys
-from threading import Thread
-
-import logging
+from mycroft.util.log import LOG
 
 logger = logging.getLogger("Jarbas_WebChatClient")
 logger.addHandler(logging.StreamHandler(sys.stdout))
 logger.setLevel("INFO")
 
-ip = check_output(['hostname', '--all-ip-addresses']).replace(" \n","")
+ip = check_output([b'hostname', b'--all-ip-addresses']).replace(b" \n",
+                                                                b"").decode(
+    "utf-8")
 clients = {}
+port = 8092
 lang = "en-us"
 platform = "JarbasWebChatHiveNodev0.1"
 
@@ -124,9 +126,9 @@ def launch(config=None):
 
     tornado.options.parse_command_line()
 
-    print "*********************************************************"
-    print "*   Access from web browser " + url
-    print "*********************************************************"
+    print("*********************************************************")
+    print("*   Access from web browser " + url)
+    print("*********************************************************")
 
     httpServer.listen(port)
     tornado.ioloop.IOLoop.instance().start()

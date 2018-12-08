@@ -1,9 +1,9 @@
+import base64
 import json
 import logging
 import random
 import sys
 from threading import Thread
-import base64
 
 from autobahn.twisted.websocket import WebSocketClientFactory, \
     WebSocketClientProtocol
@@ -32,6 +32,7 @@ class JarbasRemiClientProtocol(WebSocketClientProtocol):
 
     def onMessage(self, payload, isBinary):
         if not isBinary:
+            payload = payload.decode("utf-8")
             msg = json.loads(payload)
             if msg.get("type", "") == "speak":
                 utterance = msg["data"]["utterance"]
@@ -84,11 +85,11 @@ class RemiClient(App):
 
     def main(self):
         authorization = self.name + ":" + self.api
-        usernamePasswordDecoded = authorization
+        usernamePasswordDecoded = bytes(authorization, "utf-8")
         api = base64.b64encode(usernamePasswordDecoded)
         headers = {'authorization': api}
-        adress = u"wss://" + self.host + u":" + str(self.port)
-        factory = JarbasRemiClientFactory(adress, headers=headers,
+        address = u"wss://" + self.host + u":" + str(self.port)
+        factory = JarbasRemiClientFactory(address, headers=headers,
                                           useragent=platform)
         factory.protocol = JarbasRemiClientProtocol
         contextFactory = ssl.ClientContextFactory()
@@ -118,7 +119,7 @@ class RemiClient(App):
         self.txt_input = gui.TextInput(width=400, height=30, margin='10px')
         self.txt_input.set_text('chat: ')
         self.txt_input.set_on_change_listener(self.on_chat_type)
-        self.txt_input.set_on_enter_listener(self.on_chat_enter)
+        # self.txt_input.set_on_enter_listener(self.on_chat_enter)
 
         send_button = gui.Button('Send', width=150, height=30, margin='10px')
         send_button.set_on_click_listener(self.on_chat_click)
@@ -151,7 +152,7 @@ class RemiClient(App):
                            "destinatary":
                                "https_server", "platform": platform}}
         msg = json.dumps(msg)
-        RemiClient.protocol.sendMessage(msg, False)
+        RemiClient.protocol.sendMessage(bytes(msg, "utf-8"), False)
 
         RemiClient.history_widget.append("you: " + self.utterance.replace("chat:",
                                                                           "").lower())
@@ -167,7 +168,7 @@ class RemiClient(App):
                            "destinatary":
                                "https_server", "platform": platform}}
         msg = json.dumps(msg)
-        RemiClient.protocol.sendMessage(msg, False)
+        RemiClient.protocol.sendMessage(bytes(msg, "utf-8"), False)
 
         RemiClient.history_widget.append("you: " + self.utterance.replace("chat:",
                                                                           "").lower())

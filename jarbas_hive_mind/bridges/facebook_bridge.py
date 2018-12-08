@@ -1,18 +1,16 @@
 import base64
 import json
-from threading import Thread
 import logging
-from time import sleep
 import sys
+from threading import Thread
+from time import sleep
 
 from autobahn.twisted.websocket import WebSocketClientFactory, \
     WebSocketClientProtocol
+from fbchat import log, Client
 from fbchat.utils import Message
 from twisted.internet import reactor, ssl
 from twisted.internet.protocol import ReconnectingClientFactory
-
-from fbchat import log, Client
-
 
 platform = "JarbasFaceBookBridgev0.1"
 logger = logging.getLogger(platform)
@@ -43,7 +41,7 @@ class FaceBot(Client):
                                "target": "fbchat"}}
             msg = json.dumps(msg)
             self.protocol.clients[author_id] = {"type": thread_type}
-            self.protocol.sendMessage(msg, False)
+            self.protocol.sendMessage(bytes(msg, "utf-8"), False)
 
 
 class JarbasFacebookClientProtocol(WebSocketClientProtocol):
@@ -76,6 +74,7 @@ class JarbasFacebookClientProtocol(WebSocketClientProtocol):
 
     def onMessage(self, payload, isBinary):
         if not isBinary:
+            payload = payload.decode("utf-8")
             msg = json.loads(payload)
             utterance = ""
             if msg.get("type", "") == "speak":
@@ -99,14 +98,14 @@ class JarbasFacebookClientProtocol(WebSocketClientProtocol):
 
 class JarbasFacebookClientFactory(WebSocketClientFactory, ReconnectingClientFactory):
     protocol = JarbasFacebookClientProtocol
+    name = "facebook bridge"
+    mail = "fake@mail.com"
+    passwd = "ChangeMe"
 
-    def __init__(self, mail, password, name="facebook bridge", *args, **kwargs):
+    def __init__(self, *args, **kwargs):
         super(JarbasFacebookClientFactory, self).__init__(*args, **kwargs)
         self.status = "disconnected"
-        self.name = name
         self.client = None
-        self.mail = mail
-        self.passwd = password
 
     # websocket handlers
     def clientConnectionFailed(self, connector, reason):
@@ -123,12 +122,12 @@ class JarbasFacebookClientFactory(WebSocketClientFactory, ReconnectingClientFact
 def connect_to_facebook(mail, password, host="127.0.0.1", port=5678,
                         name="facebook bridge", api="test_key", useragent=platform):
     authorization = name + ":" + api
-    usernamePasswordDecoded = authorization
+    usernamePasswordDecoded = bytes(authorization, "utf-8")
     api = base64.b64encode(usernamePasswordDecoded)
     headers = {'authorization': api}
     address = u"wss://" + host + u":" + str(port)
-    factory = JarbasFacebookClientFactory(address, mail=mail, password=password,
-                                          name=name, headers=headers, useragent=useragent)
+    factory = JarbasFacebookClientFactory(address, headers=headers,
+                                          useragent=useragent)
     factory.protocol = JarbasFacebookClientProtocol
     contextFactory = ssl.ClientContextFactory()
     reactor.connectSSL(host, port, factory, contextFactory)

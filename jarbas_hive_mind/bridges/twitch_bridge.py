@@ -1,10 +1,11 @@
+import base64
 import json
 import logging
-import sys
-from threading import Thread
 import socket
 import string
-import base64
+import sys
+from threading import Thread
+
 from autobahn.twisted.websocket import WebSocketClientFactory, \
     WebSocketClientProtocol
 from twisted.internet import reactor, ssl
@@ -52,6 +53,7 @@ class JarbasTwitchClientProtocol(WebSocketClientProtocol):
 
     def onMessage(self, payload, isBinary):
         if not isBinary:
+            payload = payload.decode("utf-8")
             msg = json.loads(payload)
             if msg.get("type", "") == "speak":
                 utterance = msg["data"]["utterance"]
@@ -98,7 +100,7 @@ class JarbasTwitchClientProtocol(WebSocketClientProtocol):
                         # Sets the username variable to the actual username
                         usernamesplit = string.split(parts[1], "!")
                         username = usernamesplit[0]
-                        print message
+                        print("twitch message: ", message)
                         if "@" + self.NICK in message:
                             message = message.replace("@" + self.NICK, "")
                             # Only works after twitch is done announcing stuff (MODT = Message of the day)
@@ -108,7 +110,7 @@ class JarbasTwitchClientProtocol(WebSocketClientProtocol):
                                        "context": {"source": "twitch", "destinatary":
                                            "https_server", "platform": platform, "user": username}}
                                 msg = json.dumps(msg)
-                                self.sendMessage(msg, False)
+                                self.sendMessage(bytes(msg, "utf-8"), False)
 
                         for l in parts:
                             if "End of /NAMES list" in l:
@@ -117,14 +119,14 @@ class JarbasTwitchClientProtocol(WebSocketClientProtocol):
 
 class JarbasTwitchClientFactory(WebSocketClientFactory, ReconnectingClientFactory):
     protocol = JarbasTwitchClientProtocol
+    oauth = ""
+    channel = ""
+    username = "Jarbas_BOT"
 
-    def __init__(self, oauth, channel, username="Jarbas_BOT", *args, **kwargs):
+    def __init__(self, *args, **kwargs):
         super(JarbasTwitchClientFactory, self).__init__(*args, **kwargs)
         self.status = "disconnected"
         self.client = None
-        self.oauth = oauth
-        self.channel = channel
-        self.username = username
 
     # websocket handlers
     def clientConnectionFailed(self, connector, reason):
@@ -142,12 +144,11 @@ def connect_to_twitch(oauth, channel, username="Jarbas_BOT", host="127.0.0.1",
                         port=5678, name="Standalone Twitch Bridge",
                       api="test_key", useragent=platform):
     authorization = name + ":" + api
-    usernamePasswordDecoded = authorization
+    usernamePasswordDecoded = bytes(authorization, "utf-8")
     api = base64.b64encode(usernamePasswordDecoded)
     headers = {'authorization': api}
     address = u"wss://" + host + u":" + str(port)
-    factory = JarbasTwitchClientFactory(address, oauth=oauth, channel=channel,
-                                        username=username, headers=headers,
+    factory = JarbasTwitchClientFactory(address, headers=headers,
                                         useragent=useragent)
     factory.protocol = JarbasTwitchClientProtocol
     contextFactory = ssl.ClientContextFactory()

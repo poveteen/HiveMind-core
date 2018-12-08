@@ -1,9 +1,10 @@
 import json
-import requests
-import time
-from requests.exceptions import ConnectionError
 import logging
 import sys
+import time
+
+import requests
+from requests.exceptions import ConnectionError
 # filter warnings, this should be removed once we stop using self signed
 # certs for debug
 from requests.packages.urllib3.exceptions import InsecureRequestWarning
@@ -153,7 +154,7 @@ class JarbasMicroServicesAPI(object):
         lang = lang or self.lang
         try:
             response = requests.put(
-                self.url + "ask/" + lang + "/" + utterance,
+                self.url + "ask/en-us/" + utterance,
                 headers=self.headers, verify=False
             )
             try:
@@ -199,9 +200,10 @@ class JarbasMicroServicesAPI(object):
 def connect_to_hivenode(key="test_key", url="https://0.0.0.0:6712/"):
     ap = JarbasMicroServicesAPI(key, url)
     while True:
-        line = raw_input("Input: ")
+        line = input("Input: ")
         res = ap.ask_mycroft(line.lower())
-        logger.info("Jarbas: ", res.get("data", {}).get("utterance", "does not compute"))
+        logger.info("Jarbas: " + res.get("data", {}).get("utterance",
+                                                         "does not compute"))
 
 
 if __name__ == "__main__":

@@ -1,8 +1,9 @@
+import base64
 import json
 import logging
 import sys
 from threading import Thread
-import base64
+
 from autobahn.twisted.websocket import WebSocketClientFactory, \
     WebSocketClientProtocol
 from twisted.internet import reactor, ssl
@@ -29,6 +30,7 @@ class JarbasCliClientProtocol(WebSocketClientProtocol):
 
     def onMessage(self, payload, isBinary):
         if not isBinary:
+            payload = payload.decode("utf-8")
             msg = json.loads(payload)
             if msg.get("type", "") == "speak":
                 utterance = msg["data"]["utterance"]
@@ -46,12 +48,12 @@ class JarbasCliClientProtocol(WebSocketClientProtocol):
     # cli input thread
     def get_cli_input(self):
         while True:
-            line = raw_input("Input: ")
+            line = input("Input: ")
             msg = {"data": {"utterances": [line], "lang": "en-us"},
                    "type": "recognizer_loop:utterance",
                    "context": {"source": self.peer, "destinatary":
                        "https_server", "platform": platform}}
-            msg = json.dumps(msg)
+            msg = bytes(json.dumps(msg), "utf-8")
             self.sendMessage(msg, False)
 
 
@@ -79,7 +81,7 @@ def connect_to_hivemind(host="127.0.0.1",
                         port=5678, name="Standalone Cli Client",
                         api="test_key", useragent=platform):
     authorization = name + ":" + api
-    usernamePasswordDecoded = authorization
+    usernamePasswordDecoded = bytes(authorization, "utf-8")
     api = base64.b64encode(usernamePasswordDecoded)
     headers = {'authorization': api}
     address = u"wss://" + host + u":" + str(port)

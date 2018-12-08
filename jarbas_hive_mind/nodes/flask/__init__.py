@@ -1,9 +1,10 @@
-import requests
-from requests.exceptions import ConnectionError
-import time
 import json
 import logging
 import sys
+import time
+
+import requests
+from requests.exceptions import ConnectionError
 # filter warnings, this should be removed once we stop using self signed
 # certs for debug
 from requests.packages.urllib3.exceptions import InsecureRequestWarning
@@ -45,7 +46,7 @@ class JarbasFlaskHiveNodeAPI(object):
             try:
                 return response.json()
             except:
-                print response.text
+                print(response.text)
                 raise ValueError("Invalid admin api key")
         except ConnectionError as e:
             raise ConnectionError("Could not connect: " + str(e))
@@ -60,7 +61,7 @@ class JarbasFlaskHiveNodeAPI(object):
             try:
                 return response.json()
             except:
-                print response.text
+                print(response.text)
                 raise ValueError("Invalid admin api key")
         except ConnectionError as e:
             raise ConnectionError("Could not connect: " + str(e))
@@ -75,7 +76,7 @@ class JarbasFlaskHiveNodeAPI(object):
             try:
                 return response.json()["api"]
             except:
-                print response.text
+                print(response.text)
                 raise ValueError("Invalid admin api key")
         except ConnectionError as e:
             raise ConnectionError("Could not connect: " + str(e))
@@ -91,10 +92,10 @@ class JarbasFlaskHiveNodeAPI(object):
             try:
                 return response.json()
             except:
-                print response.text
+                print(response.text)
                 raise ValueError("Invalid api key")
         except ConnectionError as e:
-            print e
+            print(e)
             raise ConnectionError("Could not connect")
 
     def get_skills_map(self, lang=None):
@@ -108,10 +109,10 @@ class JarbasFlaskHiveNodeAPI(object):
             try:
                 return response.json()
             except:
-                print response.text
+                print(response.text)
                 raise ValueError("Invalid api key")
         except ConnectionError as e:
-            print e
+            print(e)
             raise ConnectionError("Could not connect")
 
     def get_intent_map(self, lang=None):
@@ -125,10 +126,10 @@ class JarbasFlaskHiveNodeAPI(object):
             try:
                 return response.json()
             except:
-                print response.text
+                print(response.text)
                 raise ValueError("Invalid api key")
         except ConnectionError as e:
-            print e
+            print(e)
             raise ConnectionError("Could not connect")
 
     def get_intent(self, utterance, lang=None):
@@ -142,10 +143,10 @@ class JarbasFlaskHiveNodeAPI(object):
             try:
                 return response.json()
             except:
-                print response.text
+                print(response.text)
                 raise ValueError("Invalid api key")
         except ConnectionError as e:
-            print e
+            print(e)
             raise ConnectionError("Could not connect")
 
     def ask_mycroft(self, utterance, lang=None):
@@ -170,7 +171,7 @@ class JarbasFlaskHiveNodeAPI(object):
                                     headers=self.headers, verify=False
                                 )
                             except Exception as e:
-                                print e
+                                print(e)
 
                             return {"type": "speak",
                                     "data": {"utterance": "server timed "
@@ -190,7 +191,7 @@ class JarbasFlaskHiveNodeAPI(object):
                     raise ValueError("Received unexpected status from "
                                      "server: " + str(ans))
             except:
-                print response.text
+                print(response.text)
                 raise ValueError("Invalid api key: " + str(self.api))
         except ConnectionError as e:
             raise ConnectionError("Could not connect: " + str(e))

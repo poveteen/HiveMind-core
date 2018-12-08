@@ -8,7 +8,8 @@ from os.path import dirname
 from subprocess import check_output
 from threading import Thread
 
-import tornado.options
+import tornado.web
+import tornado.websocket
 from autobahn.twisted.websocket import WebSocketClientFactory, \
     WebSocketClientProtocol
 from twisted.internet import reactor, ssl
@@ -18,7 +19,8 @@ logger = logging.getLogger("Jarbas_WebChatTerminalv0.1")
 logger.addHandler(logging.StreamHandler(sys.stdout))
 logger.setLevel("INFO")
 
-ip = check_output(['hostname', '--all-ip-addresses']).replace(" \n","")
+ip = check_output([b'hostname', b'--all-ip-addresses']).replace(b" \n", b"")
+port = 8686
 clients = {}
 lang = "en-us"
 platform = "JarbasWebChatClientv0.1"
@@ -81,19 +83,20 @@ class JarbasWebChatClientProtocol(WebSocketClientProtocol):
             url = "https://" + str(ip) + ":" + str(port)
         else:
             httpServer = tornado.httpserver.HTTPServer(application)
-            url = "http://" + str(ip) + ":" + str(port)
+            url = "http://" + ip.decode("utf-8") + ":" + str(port)
 
         tornado.options.parse_command_line()
 
-        print "*********************************************************"
-        print "*   Access from web browser " + url
-        print "*********************************************************"
+        print("*********************************************************")
+        print("*   Access from web browser " + url)
+        print("*********************************************************")
 
         httpServer.listen(port)
         tornado.ioloop.IOLoop.instance().start()
 
     def onMessage(self, payload, isBinary):
         if not isBinary:
+            payload = payload.decode("utf-8")
             msg = json.loads(payload)
             if msg.get("type", "") == "speak":
                 utterance = msg["data"]["utterance"]
@@ -134,7 +137,7 @@ class WebSocketHandler(tornado.websocket.WebSocketHandler):
                        "type": "recognizer_loop:utterance",
                        "context": context}
                 msg = json.dumps(msg)
-                self.server.sendMessage(msg, False)
+                self.server.sendMessage(bytes(msg, "utf-8"), False)
 
     def on_close(self):
         global clients
@@ -165,7 +168,7 @@ def connect_to_hivemind(host="127.0.0.1",
                         port=5678, name="Standalone WebChat Terminal",
                         api="test_key", useragent=platform):
     authorization = name + ":" + api
-    usernamePasswordDecoded = authorization
+    usernamePasswordDecoded = bytes(authorization, "utf-8")
     api = base64.b64encode(usernamePasswordDecoded)
     headers = {'authorization': api}
     address = u"wss://" + host + u":" + str(port)

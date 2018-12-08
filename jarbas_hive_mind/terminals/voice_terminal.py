@@ -1,62 +1,16 @@
+import base64
+import json
+import logging
+import sys
 from threading import Thread
 
 from autobahn.twisted.websocket import WebSocketClientFactory, \
     WebSocketClientProtocol
-from jarbas_hive_mind.clients.speech.listener import RecognizerLoop
+from responsive_voice import ResponsiveVoice
 from twisted.internet import reactor, ssl
 from twisted.internet.protocol import ReconnectingClientFactory
 
-conf = {
-    "listener": {
-        "sample_rate": 16000,
-        "channels": 1,
-        "record_wake_words": False,
-        "record_utterances": False,
-        "phoneme_duration": 120,
-        "multiplier": 1.0,
-        "energy_ratio": 1.5,
-        "wake_word": "hey mycroft",
-        "stand_up_word": "wake up"
-    },
-    "hotwords": {
-        "hey mycroft": {
-            "module": "pocketsphinx",
-            "phonemes": "HH EY . M AY K R AO F T",
-            "threshold": 1e-90,
-            "lang": "en-us"
-        },
-        "thank you": {
-            "module": "pocketsphinx",
-            "phonemes": "TH AE NG K . Y UW .",
-            "threshold": 1e-1,
-            "listen": False,
-            "utterance": "thank you",
-            "active": True,
-            "sound": "",
-            "lang": "en-us"
-        },
-        "wake up": {
-            "module": "pocketsphinx",
-            "phonemes": "W EY K . AH P",
-            "threshold": 1e-20,
-            "lang": "en-us"
-        }
-    },
-    "stt": {
-        "deepspeech_server": {
-            "uri": "http://localhost:8080/stt"
-        },
-        "kaldi": {
-            "uri": "http://localhost:8080/client/dynamic/recognize"
-        }
-    }
-}
-
-import json
-import sys
-import logging
-import base64
-from responsive_voice import ResponsiveVoice
+from jarbas_hive_mind.terminals.speech.listener import RecognizerLoop
 
 logger = logging.getLogger("Standalone_Mycroft_Client")
 logger.addHandler(logging.StreamHandler(sys.stdout))
@@ -162,6 +116,7 @@ class JarbasVoiceClientProtocol(WebSocketClientProtocol):
 
     def onMessage(self, payload, isBinary):
         if not isBinary:
+            payload = payload.decode("utf-8")
             msg = json.loads(payload)
             if msg.get("type", "") == "speak":
                 utterance = msg["data"]["utterance"]
@@ -172,7 +127,7 @@ class JarbasVoiceClientProtocol(WebSocketClientProtocol):
 
     def send(self, msg):
         msg = json.dumps(msg)
-        self.sendMessage(msg, False)
+        self.sendMessage(bytes(msg, "utf-8"), False)
 
     def onClose(self, wasClean, code, reason):
         logger.info("WebSocket connection closed: {0}".format(reason))
@@ -183,14 +138,58 @@ class JarbasVoiceClientProtocol(WebSocketClientProtocol):
 
 class JarbasVoiceClientFactory(WebSocketClientFactory, ReconnectingClientFactory):
     protocol = JarbasVoiceClientProtocol
+    config = {
+        "listener": {
+            "sample_rate": 16000,
+            "channels": 1,
+            "record_wake_words": False,
+            "record_utterances": False,
+            "phoneme_duration": 120,
+            "multiplier": 1.0,
+            "energy_ratio": 1.5,
+            "wake_word": "hey mycroft",
+            "stand_up_word": "wake up"
+        },
+        "hotwords": {
+            "hey mycroft": {
+                "module": "pocketsphinx",
+                "phonemes": "HH EY . M AY K R AO F T",
+                "threshold": 1e-90,
+                "lang": "en-us"
+            },
+            "thank you": {
+                "module": "pocketsphinx",
+                "phonemes": "TH AE NG K . Y UW .",
+                "threshold": 1e-1,
+                "listen": False,
+                "utterance": "thank you",
+                "active": True,
+                "sound": "",
+                "lang": "en-us"
+            },
+            "wake up": {
+                "module": "pocketsphinx",
+                "phonemes": "W EY K . AH P",
+                "threshold": 1e-20,
+                "lang": "en-us"
+            }
+        },
+        "stt": {
+            "deepspeech_server": {
+                "uri": "http://localhost:8080/stt"
+            },
+            "kaldi": {
+                "uri": "http://localhost:8080/client/dynamic/recognize"
+            }
+        }
+    }
 
-    def __init__(self, config=conf, *args, **kwargs):
+    def __init__(self, *args, **kwargs):
         super(JarbasVoiceClientFactory, self).__init__(*args, **kwargs)
         self.status = "disconnected"
         self.client = None
         # TODO make optional
         self.engine = ResponsiveVoice(gender="female")
-        self.config = config
 
     # websocket handlers
     def clientConnectionFailed(self, connector, reason):
@@ -206,15 +205,15 @@ class JarbasVoiceClientFactory(WebSocketClientFactory, ReconnectingClientFactory
         self.retry(connector)
 
 
-def connect_to_hivemind(config=conf, host="127.0.0.1",
+def connect_to_hivemind(host="127.0.0.1",
                         port=5678, name="Standalone Voice Terminal",
                         api="test_key", useragent=platform):
     authorization = name + ":" + api
-    usernamePasswordDecoded = authorization
+    usernamePasswordDecoded = bytes(authorization, "utf-8")
     api = base64.b64encode(usernamePasswordDecoded)
     headers = {'authorization': api}
     address = u"wss://" + host + u":" + str(port)
-    factory = JarbasVoiceClientFactory(address, config=config, headers=headers,
+    factory = JarbasVoiceClientFactory(address, headers=headers,
                                        useragent=useragent)
     factory.protocol = JarbasVoiceClientProtocol
     contextFactory = ssl.ClientContextFactory()

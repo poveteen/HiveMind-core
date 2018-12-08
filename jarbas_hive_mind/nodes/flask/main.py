@@ -1,10 +1,10 @@
 from threading import Thread
 
-from jarbas_hive_mind.nodes.flask.base import *
-
+from mycroft.configuration.config import Configuration
 from mycroft.messagebus.client.ws import WebsocketClient
 from mycroft.messagebus.message import Message
-from mycroft.configuration.config import Configuration
+
+from jarbas_hive_mind.nodes.flask.base import *
 from jarbas_hive_mind.nodes.micro_intent_service import MicroIntentService
 
 ws = None
@@ -125,9 +125,11 @@ def listener(message):
     global users_on_hold, answers
     message.context = message.context or {}
     user = message.context.get("user_id", "")
-    print "listen", user
+
     if user in users_on_hold.keys():  # are we waiting to answer this user?
+
         if answers[user] is not None:
+            print("expanding answer for user:", user)
             # update data and context
             for k in message.context.keys():
                 if k == "client_name" and ":https_server" not in message.context[k]:
@@ -136,6 +138,8 @@ def listener(message):
             for k in message.data.keys():
                 # update utterance
                 if k == "utterance":
+                    print("appending utterance: ", message.data[
+                        "utterance"], " for user: ", user)
                     answers[user]["data"]["utterance"] = \
                         answers[user]["data"]["utterance"] + ". " + \
                         message.data[
@@ -143,7 +147,10 @@ def listener(message):
                 else:
                     answers[user]["data"][k] = message.data[k]
         else:
+            print("composing answer for user:", user)
             # create answer
+            if "client_name" not in message.context:
+                message.context["client_name"] = user
             message.context["client_name"] += ":https_server"
             answers[user] = {"data": message.data, "context": message.context}
 
@@ -152,7 +159,8 @@ def end_wait(message):
     ''' stop capturing answers for this user '''
     global users_on_hold, answers
     user = message.context.get("user_id", "")
-    print "end", user
+    print("ending answer capture for user:", user)
+    print(answers)
     if user in users_on_hold.keys():
         # mark as answered
         users_on_hold[user] = True
@@ -160,8 +168,8 @@ def end_wait(message):
         context = {}
         if message.type == "complete_intent_failure":
 
-            answers[user] = {"data": {"utterance": "does not compute"}, "context":
-                                 context}
+            answers[user] = {"data": {"utterance": "does not compute"},
+                             "context": context}
         # no answer but end of handler
         elif answers[user] is None:
             answers[user] = {"data": {"utterance": "something went wrong, "
