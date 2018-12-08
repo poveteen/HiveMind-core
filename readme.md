@@ -1,7 +1,19 @@
-## Jarbas Mycroft Hive
+# Jarbas Mycroft Hive
 
 Join the mycroft collective, utils for mycroft-core mesh networking
 
+## Install
+
+activate mycroft virtual env and then
+
+    pip install jarbas_hive_mind
+    
+or
+
+    git clone https://github.com/JarbasAl/hive-mind
+    cd hive-mind
+    pip install .
+        
 ## Components
 
 - [Minds](https://github.com/JarbasAl/hive_mind/tree/master/jarbas_hive_mind/minds)
