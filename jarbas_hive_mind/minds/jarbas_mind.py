@@ -5,14 +5,14 @@ from threading import Thread
 
 from autobahn.twisted.websocket import WebSocketServerProtocol, \
     WebSocketServerFactory
-from mycroft.configuration import Configuration
-from mycroft.messagebus.client.ws import WebsocketClient
-from mycroft.messagebus.message import Message
-from mycroft.util.log import LOG as logger
+from jarbas_hive_mind.utils.messagebus.client.ws import WebsocketClient
 from twisted.internet import reactor, ssl
 
 from jarbas_hive_mind.database.client import ClientDatabase
 from jarbas_hive_mind.utils import create_self_signed_cert
+from jarbas_hive_mind.utils.configuration import Configuration
+from jarbas_hive_mind.utils.log import LOG as logger
+from jarbas_hive_mind.utils.messagebus.message import Message
 
 author = "jarbasAI"
 

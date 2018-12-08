@@ -4,12 +4,13 @@ from threading import Thread
 
 from autobahn.twisted.websocket import WebSocketClientFactory, \
     WebSocketClientProtocol
-from mycroft.configuration import Configuration
-from mycroft.messagebus.client.ws import WebsocketClient
-from mycroft.messagebus.message import Message
-from mycroft.util.log import LOG as logger
+from jarbas_hive_mind.utils.messagebus.client.ws import WebsocketClient
 from twisted.internet import reactor, ssl
 from twisted.internet.protocol import ReconnectingClientFactory
+
+from jarbas_hive_mind.utils.configuration import Configuration
+from jarbas_hive_mind.utils.log import LOG as logger
+from jarbas_hive_mind.utils.messagebus.message import Message
 
 platform = "JarbasDrone:" + Configuration.get().get("enclosure", {}).get(
     "platform", "linux")

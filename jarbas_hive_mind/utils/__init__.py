@@ -1,8 +1,107 @@
-from OpenSSL import crypto
-from socket import gethostname
-from os.path import exists, join
-from os import makedirs
+import json
 import random
+from os import makedirs
+from os.path import exists, join
+from socket import gethostname
+
+from OpenSSL import crypto
+
+
+def merge_dict(base, delta):
+    """
+        Recursively merging configuration dictionaries.
+
+        Args:
+            base:  Target for merge
+            delta: Dictionary to merge into base
+    """
+
+    for k, dv in delta.items():
+        bv = base.get(k)
+        if isinstance(dv, dict) and isinstance(bv, dict):
+            merge_dict(bv, dv)
+        else:
+            base[k] = dv
+
+
+def load_commented_json(filename):
+    """ Loads an JSON file, ignoring comments
+
+    Supports a trivial extension to the JSON file format.  Allow comments
+    to be embedded within the JSON, requiring that a comment be on an
+    independent line starting with '//' or '#'.
+
+    NOTE: A file created with these style comments will break strict JSON
+          parsers.  This is similar to but lighter-weight than "human json"
+          proposed at https://hjson.org
+
+    Args:
+        filename (str):  path to the commented JSON file
+
+    Returns:
+        obj: decoded Python object
+    """
+    with open(filename) as f:
+        contents = f.read()
+
+    return json.loads(uncomment_json(contents))
+
+
+def uncomment_json(commented_json_str):
+    """ Removes comments from a JSON string.
+
+    Supporting a trivial extension to the JSON format.  Allow comments
+    to be embedded within the JSON, requiring that a comment be on an
+    independent line starting with '//' or '#'.
+
+    Example...
+       {
+         // comment
+         'name' : 'value'
+       }
+
+    Args:
+        commented_json_str (str):  a JSON string
+
+    Returns:
+        str: uncommented, legal JSON
+    """
+    lines = commented_json_str.splitlines()
+    # remove all comment lines, starting with // or #
+    nocomment = []
+    for line in lines:
+        stripped = line.lstrip()
+        if stripped.startswith("//") or stripped.startswith("#"):
+            continue
+        nocomment.append(line)
+
+    return " ".join(nocomment)
+
+
+def create_echo_function(name, whitelist=None):
+    def echo(message):
+        """Listen for messages and echo them for logging"""
+        from jarbas_hive_mind.utils.log import LOG
+        from jarbas_hive_mind.utils.configuration import Configuration
+        blacklist = Configuration.get().get("ignore_logs")
+        try:
+            js_msg = json.loads(message)
+
+            if whitelist and js_msg.get("type") not in whitelist:
+                return
+
+            if blacklist and js_msg.get("type") in blacklist:
+                return
+
+            if js_msg.get("type") == "registration":
+                # do not log tokens from registration messages
+                js_msg["data"]["token"] = None
+                message = json.dumps(js_msg)
+        except Exception:
+            pass
+        LOG(name).debug(message)
+
+    return echo
 
 
 def create_self_signed_cert(cert_dir, name="jarbas_hivemind"):
