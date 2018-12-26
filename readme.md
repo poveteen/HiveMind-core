@@ -2,6 +2,8 @@
 
 Join the mycroft collective, utils for mycroft-core mesh networking
 
+![](hivemind.png)
+
 ## Install
 
 activate mycroft virtual env and then
