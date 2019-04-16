@@ -234,11 +234,10 @@ def connect_to_hivemind(config=conf, host="127.0.0.1",
     headers = {'authorization': key}
     address = u"wss://" + host + u":" + str(port)
     logger.info("[INFO] connecting to hive mind at " + address)
-    factory = JarbasVoiceTerminal(config=config, headers=headers,
-                                  useragent=useragent)
-    factory.protocol = JarbasVoiceTerminalProtocol
+    terminal = JarbasVoiceTerminal(config=config, headers=headers,
+                                   useragent=useragent)
     contextFactory = ssl.ClientContextFactory()
-    reactor.connectSSL(host, port, factory, contextFactory)
+    reactor.connectSSL(host, port, terminal, contextFactory)
     reactor.run()
 
 

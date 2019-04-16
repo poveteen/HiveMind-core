@@ -176,7 +176,6 @@ def connect_to_twitch(oauth, channel, username="Jarbas_BOT", host="127.0.0.1",
     bridge = JarbasTwitchBridge(oauth=oauth, channel=channel,
                                 username=username, headers=headers,
                                 useragent=useragent)
-    bridge.protocol = JarbasTwitchBridgeProtocol
     contextFactory = ssl.ClientContextFactory()
     reactor.connectSSL(host, port, bridge, contextFactory)
     reactor.run()

@@ -185,13 +185,12 @@ def connect_to_twitter(consumer_key, consumer_secret, access_token,
     headers = {'authorization': api}
     address = u"wss://" + host + u":" + str(port)
     logger.info("[INFO] connecting to hive mind at " + address)
-    factory = JarbasTwitterBridge(consumer_key, consumer_secret, access_token,
-                                  access_token_secret, users, languages,
-                                  name=name, headers=headers,
-                                  useragent=useragent)
-    factory.protocol = JarbasTwitterBridgeProtocol
+    bridge = JarbasTwitterBridge(consumer_key, consumer_secret, access_token,
+                                 access_token_secret, users, languages,
+                                 name=name, headers=headers,
+                                 useragent=useragent)
     contextFactory = ssl.ClientContextFactory()
-    reactor.connectSSL(host, port, factory, contextFactory)
+    reactor.connectSSL(host, port, bridge, contextFactory)
     reactor.run()
 
 

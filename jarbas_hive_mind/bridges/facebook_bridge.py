@@ -146,13 +146,12 @@ def connect_to_facebook(mail, password, host="127.0.0.1", port=5678,
     headers = {'authorization': api}
     address = u"wss://" + host + u":" + str(port)
     logger.info("[INFO] connecting to hive mind at " + address)
-    factory = JarbasFacebookBridge(mail=mail,
-                                   password=password,
-                                   name=name, headers=headers,
-                                   useragent=useragent)
-    factory.protocol = JarbasFacebookBridgeProtocol
+    bridge = JarbasFacebookBridge(mail=mail,
+                                  password=password,
+                                  name=name, headers=headers,
+                                  useragent=useragent)
     contextFactory = ssl.ClientContextFactory()
-    reactor.connectSSL(host, port, factory, contextFactory)
+    reactor.connectSSL(host, port, bridge, contextFactory)
     reactor.run()
 
 

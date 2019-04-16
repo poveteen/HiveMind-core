@@ -179,11 +179,10 @@ def connect_to_hivemind(host="127.0.0.1",
     headers = {'authorization': api}
     address = u"wss://" + host + u":" + str(port)
     logger.info("[INFO] connecting to hive mind at " + address)
-    factory = JarbasWebChatTerminal(address, headers=headers,
-                                    useragent=useragent)
-    factory.protocol = JarbasWebChatTerminalProtocol
+    terminal = JarbasWebChatTerminal(address, headers=headers,
+                                     useragent=useragent)
     contextFactory = ssl.ClientContextFactory()
-    reactor.connectSSL(host, port, factory, contextFactory)
+    reactor.connectSSL(host, port, terminal, contextFactory)
     reactor.run()
 
 

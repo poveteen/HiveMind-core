@@ -220,11 +220,10 @@ def connect_to_hackchat(channel, username="Jarbas_BOT", host="127.0.0.1",
     headers = {'authorization': api}
     address = u"wss://" + host + u":" + str(port)
     logger.info("[INFO] connected to hivemind: " + address)
-    factory = JarbasHackChatBridge(channel=channel, username=username,
-                                   headers=headers, useragent=useragent)
-    factory.protocol = JarbasHackChatBridgeProtocol
+    bridge = JarbasHackChatBridge(channel=channel, username=username,
+                                  headers=headers, useragent=useragent)
     contextFactory = ssl.ClientContextFactory()
-    reactor.connectSSL(host, port, factory, contextFactory)
+    reactor.connectSSL(host, port, bridge, contextFactory)
     reactor.run()
 
 

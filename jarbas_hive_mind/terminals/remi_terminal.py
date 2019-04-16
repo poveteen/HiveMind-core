@@ -100,11 +100,10 @@ class RemiTerminal(App):
 
         headers = {'authorization': key}
         adress = u"wss://" + self.host + u":" + str(self.port)
-        factory = JarbasRemiTerminal(adress, headers=headers,
-                                     useragent=platform)
-        factory.protocol = JarbasRemiTerminalProtocol
+        terminal = JarbasRemiTerminal(adress, headers=headers,
+                                      useragent=platform)
         contextFactory = ssl.ClientContextFactory()
-        reactor.connectSSL(self.host, self.port, factory, contextFactory)
+        reactor.connectSSL(self.host, self.port, terminal, contextFactory)
 
         self.reactor_loop = Thread(target=reactor.run)
         self.reactor_loop.setDaemon(True)
