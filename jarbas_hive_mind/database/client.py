@@ -175,3 +175,7 @@ if __name__ == "__main__":
     name = "Jarbas Facebook Bridge"
     key = "fb_key"
     db.add_client(name, mail, key, admin=False)
+
+    name = "Jarbas Twitter Bridge"
+    key = "twitter_key"
+    db.add_client(name, mail, key, admin=False)

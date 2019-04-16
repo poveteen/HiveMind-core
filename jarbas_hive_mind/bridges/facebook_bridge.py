@@ -34,11 +34,13 @@ class FaceBot(Client):
 
         # If you're not the author, process
         if author_id != self.uid:
+            utterance = message_object.text
             if thread_type == ThreadType.GROUP:
                 name = self.fetchUserInfo(self.uid)[self.uid].name
-                if "@" + name not in message_object.text:
+                if "@" + name.lower() not in utterance.lower():
                     return
-            msg = {"data": {"utterances": [message_object.text],
+                utterance = utterance.replace("@" + name, "")
+            msg = {"data": {"utterances": [utterance],
                             "lang": "en-us"},
                    "type": "recognizer_loop:utterance",
                    "context": {"source": self.protocol.peer,
