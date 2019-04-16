@@ -3,7 +3,6 @@ import base64
 import json
 import logging
 import os
-import sys
 from subprocess import check_output
 from threading import Thread
 
@@ -18,7 +17,6 @@ from twisted.internet.protocol import ReconnectingClientFactory
 
 platform = "JarbasWebChatTerminalv0.1"
 logger = logging.getLogger(platform)
-logger.addHandler(logging.StreamHandler(sys.stdout))
 logger.setLevel("INFO")
 
 ip = check_output([b'hostname', b'--all-ip-addresses']) \

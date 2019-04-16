@@ -2,7 +2,6 @@ import base64
 import json
 import logging
 import random
-import sys
 from threading import Thread
 
 from autobahn.twisted.websocket import WebSocketClientFactory, \
@@ -14,7 +13,6 @@ from twisted.internet.protocol import ReconnectingClientFactory
 platform = "JarbasREMITerminalv0.1"
 
 logger = logging.getLogger(platform)
-logger.addHandler(logging.StreamHandler(sys.stdout))
 logger.setLevel("INFO")
 
 
@@ -130,10 +128,7 @@ class RemiTerminal(App):
                                                                  margin='10px')
 
         self.txt_input = gui.TextInput(width=400, height=30, margin='10px')
-        # self.txt_input.set_text('chat: ')
-        # self.txt_input.set_on_change_listener(self.on_chat_type)
         self.txt_input.set_on_change_listener(self.on_chat_enter)
-        # self.txt_input.set_on_enter_listener(self.on_chat_enter)
 
         send_button = gui.Button('Send', width=150, height=30, margin='10px')
         send_button.set_on_click_listener(self.on_chat_click)
@@ -181,7 +176,7 @@ class RemiTerminal(App):
             msg = {"data": {"utterances": [self.utterance], "lang": "en-us"},
                    "type": "recognizer_loop:utterance",
                    "context": {"source": RemiTerminal.protocol.peer,
-                               "destinatary": "hive_mind",
+                               "destination": "hive_mind",
                                "platform": platform}}
             msg = json.dumps(msg)
             msg = bytes(msg, encoding="utf-8")
