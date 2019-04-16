@@ -1,64 +1,58 @@
 import base64
-import os
-from os.path import exists, dirname, expanduser
+from os.path import exists
 from threading import Thread
 
 from autobahn.twisted.websocket import WebSocketServerProtocol, \
     WebSocketServerFactory
-from jarbas_hive_mind.utils.messagebus.client.ws import WebsocketClient
 from twisted.internet import reactor, ssl
 
 from jarbas_hive_mind.database.client import ClientDatabase
+from jarbas_hive_mind.settings import CERTS_PATH, DEFAULT_SSL_CRT, \
+    DEFAULT_SSL_KEY, DEFAULT_PORT, USE_SSL
 from jarbas_hive_mind.utils import create_self_signed_cert
-from jarbas_hive_mind.utils.configuration import Configuration
-from jarbas_hive_mind.utils.log import LOG as logger
+from jarbas_hive_mind.utils.log import LOG
 from jarbas_hive_mind.utils.messagebus.message import Message
+from jarbas_hive_mind.utils.messagebus.ws import WebsocketClient
 
 author = "jarbasAI"
 
-NAME = Configuration.get().get("server", {}).get("name", "JarbasMindv0.1")
-
-
-def root_dir():
-    """ Returns root directory for this project """
-    return os.path.dirname(os.path.realpath(__file__ + '/.'))
-
+NAME = "JarbasMindv0.1"
 
 users = ClientDatabase()
 
 
 # protocol
-class JarbasServerProtocol(WebSocketServerProtocol):
+class JarbasMindProtocol(WebSocketServerProtocol):
     def onConnect(self, request):
+
+        LOG.info("Client connecting: {0}".format(request.peer))
+        # validate user
+        userpass_encoded = bytes(request.headers.get("authorization"),
+                                 encoding="utf-8")[2:-1]
+        userpass_decoded = base64.b64decode(userpass_encoded).decode("utf-8")
+        name, key = userpass_decoded.split(":")
+        ip = request.peer.split(":")[1]
+        context = {"source": self.peer}
+        self.platform = request.headers.get("platform", "unknown")
+
         try:
-            logger.info("Client connecting: {0}".format(request.peer))
-            # validate user
-            userpass_encoded = request.headers.get("authorization")[2:-1]
-            userpass_decoded = base64.b64decode(userpass_encoded).decode(
-                "utf-8")
-            name, api = userpass_decoded.split(":")
-            ip = " "  # request.peer.split(":")[1]
-            context = {"source": self.peer}
-            self.platform = request.headers.get("platform", "unknown")
-            user = users.get_client_by_api_key(api)
-            if not user:
-                logger.info("Client provided an invalid api key")
-                self.factory.emitter_send("hive.client.connection.error",
-                                          {"error": "invalid api key",
-                                           "ip": ip,
-                                           "api_key": api,
-                                           "platform": self.platform},
-                                          context)
-                raise ValueError("Invalid API key")
-            # send message to internal mycroft bus
-            data = {"ip": ip, "headers": request.headers}
-            self.factory.emitter_send("hive.client.connect", data, context)
-            # return a pair with WS protocol spoken (or None for any) and
-            # custom headers to send in initial WS opening handshake HTTP response
-            headers = {"server": NAME}
-        except Exception as e:
-            print(e)
-            raise
+            user = users.get_client_by_api_key(key)
+        except:
+            LOG.info("Client provided an invalid api key")
+            self.factory.mycroft_send("hive.client.connection.error",
+                                      {"error": "invalid api key",
+                                       "ip": ip,
+                                       "api_key": key,
+                                       "platform": self.platform},
+                                      context)
+            raise ValueError("Invalid API key")
+        # send message to internal mycroft bus
+        data = {"ip": ip, "headers": request.headers}
+        self.blacklist = users.get_blacklist_by_api_key(key)
+        self.factory.mycroft_send("hive.client.connect", data, context)
+        # return a pair with WS protocol spoken (or None for any) and
+        # custom headers to send in initial WS opening handshake HTTP response
+        headers = {"server": NAME}
         return (None, headers)
 
     def onOpen(self):
@@ -70,26 +64,26 @@ class JarbasServerProtocol(WebSocketServerProtocol):
        Register client in factory, so that it is able to track it.
        """
         self.factory.register_client(self, self.platform)
-        logger.info("WebSocket connection open.")
+        LOG.info("WebSocket connection open.")
 
     def onMessage(self, payload, isBinary):
         if isBinary:
-            logger.info(
+            LOG.info(
                 "Binary message received: {0} bytes".format(len(payload)))
         else:
-            logger.info(
+            LOG.info(
                 "Text message received: {0}".format(payload.decode('utf8')))
 
         self.factory.process_message(self, payload, isBinary)
 
     def onClose(self, wasClean, code, reason):
         self.factory.unregister_client(self, reason=u"connection closed")
-        logger.info("WebSocket connection closed: {0}".format(reason))
-        ip = " "  # self.peer.split(":")[1]
+        LOG.info("WebSocket connection closed: {0}".format(reason))
+        ip = self.peer.split(":")[1]
         data = {"ip": ip, "code": code, "reason": "connection closed",
                 "wasClean": wasClean}
         context = {"source": self.peer}
-        self.factory.emitter_send("hive.client.disconnect", data, context)
+        self.factory.mycroft_send("hive.client.disconnect", data, context)
 
     def connectionLost(self, reason):
         """
@@ -97,48 +91,56 @@ class JarbasServerProtocol(WebSocketServerProtocol):
        Remove client from list of tracked connections.
        """
         self.factory.unregister_client(self, reason=u"connection lost")
-        logger.info("WebSocket connection lost: {0}".format(reason))
-        ip = " "  # self.peer.split(":")[1]
+        LOG.info("WebSocket connection lost: {0}".format(reason))
+        ip = self.peer.split(":")[1]
         data = {"ip": ip, "reason": "connection lost"}
         context = {"source": self.peer}
-        self.factory.emitter_send("hive.client.disconnect", data, context)
+        self.factory.mycroft_send("hive.client.disconnect", data, context)
 
 
 # server internals
-class JarbasServerFactory(WebSocketServerFactory):
-    def __init__(self, *args, **kwargs):
-        super(JarbasServerFactory, self).__init__(*args, **kwargs)
+class JarbasMind(WebSocketServerFactory):
+    def __init__(self, bus=None, *args, **kwargs):
+        super(JarbasMind, self).__init__(*args, **kwargs)
         # list of clients
         self.clients = {}
         # ip block policy
         self.ip_list = []
         self.blacklist = True  # if False, ip_list is a whitelist
         # mycroft_ws
-        self.bus = None
-        self.emitter_thread = None
-        self.create_internal_emitter()
+        self.bus = bus
+        self.bus_daemon = None
+        self.create_mycroft_connection()
 
-    def emitter_send(self, type, data=None, context=None):
+    def mycroft_send(self, type, data=None, context=None):
         data = data or {}
         context = context or {}
         if "client_name" not in context:
             context["client_name"] = NAME
         self.bus.emit(Message(type, data, context))
 
-    def connect_to_internal_emitter(self):
+    def connect_to_mycroft(self):
         self.bus.run_forever()
 
-    def create_internal_emitter(self, bus=None):
+    def create_mycroft_connection(self):
         # connect to mycroft internal websocket
         self.bus = self.bus or WebsocketClient()
-        self.register_internal_messages()
-        self.emitter_thread = Thread(target=self.connect_to_internal_emitter)
-        self.emitter_thread.setDaemon(True)
-        self.emitter_thread.start()
+        self.register_mycroft_messages()
+        self.bus_daemon = Thread(target=self.connect_to_mycroft)
+        self.bus_daemon.setDaemon(True)
+        self.bus_daemon.start()
 
-    def register_internal_messages(self):
-        # catch all messages
-        self.bus.on('message', self.handle_message)
+    def register_mycroft_messages(self):
+        # HACK, TODO find why failing
+        # self.bus.on('message', self.handle_message)
+
+        def wrapper(cl, message):
+            message = Message.deserialize(message)
+            self.handle_message(message)
+
+        self.bus.on("message", self.handle_message)
+        # self.bus.client.on_message = wrapper
+
         self.bus.on('hive.client.broadcast', self.handle_broadcast)
         self.bus.on('hive.client.send', self.handle_send)
 
@@ -148,31 +150,32 @@ class JarbasServerFactory(WebSocketServerFactory):
        Add client to list of managed connections.
        """
         platform = platform or "unknown"
-        logger.info("registering client: " + str(client.peer))
-        t, ip, sock = " ", "", ""  # client.peer.split(":")
-        # see if ip adress is blacklisted
+        LOG.info("registering client: " + str(client.peer))
+        t, ip, sock = client.peer.split(":")
+        # see if ip address is blacklisted
         if ip in self.ip_list and self.blacklist:
-            logger.warning("Blacklisted ip tried to connect: " + ip)
+            LOG.warning("Blacklisted ip tried to connect: " + ip)
             self.unregister_client(client, reason=u"Blacklisted ip")
             return
-        # see if ip adress is whitelisted
+        # see if ip address is whitelisted
         elif ip not in self.ip_list and not self.blacklist:
-            logger.warning("Unknown ip tried to connect: " + ip)
+            LOG.warning("Unknown ip tried to connect: " + ip)
             #  if not whitelisted kick
             self.unregister_client(client, reason=u"Unknown ip")
             return
-        self.clients[client.peer] = {"object": client, "status":
-            "connected", "platform": platform}
+        self.clients[client.peer] = {"object": client,
+                                     "status": "connected",
+                                     "platform": platform}
 
     def unregister_client(self, client, code=3078,
                           reason=u"unregister client request"):
         """
        Remove client from list of managed connections.
        """
-        logger.info("deregistering client: " + str(client.peer))
+        LOG.info("deregistering client: " + str(client.peer))
         if client.peer in self.clients.keys():
             client_data = self.clients[client.peer] or {}
-            j, ip, sock_num = " ", "", ""  # client.peer.split(":")
+            j, ip, sock_num = client.peer.split(":")
             context = {"user": client_data.get("names", ["unknown_user"])[0],
                        "source": client.peer}
             self.bus.emit(
@@ -186,27 +189,32 @@ class JarbasServerFactory(WebSocketServerFactory):
         """
        Process message from client, decide what to do internally here
        """
-        logger.info("processing message from client: " + str(client.peer))
+        LOG.info("processing message from client: " + str(client.peer))
         client_data = self.clients[client.peer]
-
-        # client_protocol, ip, sock_num = client.peer.split(":")
-        # TODO this would be the place to check for blacklisted
-        # messages/skills/intents per user
+        client_protocol, ip, sock_num = client.peer.split(":")
 
         if isBinary:
             # TODO receive files
             pass
         else:
-            payload = payload.decode("utf-8")
             # add context for this message
+            payload = payload.decode("utf-8")
             message = Message.deserialize(payload)
             message.context["source"] = client.peer
-            message.context["destinatary"] = "skills"
+            message.context["destination"] = "skills"
             if "platform" not in message.context:
                 message.context["platform"] = client_data.get("platform",
                                                               "unknown")
+
+            # messages/skills/intents per user
+            if message.type in client.blacklist.get("messages", []):
+                LOG.warning(client.peer + " sent a blacklisted message " \
+                                          "type: " + message.type)
+                return
+            # TODO check intent / skill that will trigger
+
             # send client message to internal mycroft bus
-            self.emitter_send(message.type, message.data, message.context)
+            self.mycroft_send(message.type, message.data, message.context)
 
     # mycroft handlers
     def handle_send(self, message):
@@ -223,8 +231,8 @@ class JarbasServerFactory(WebSocketServerFactory):
             payload = Message.serialize(msg)
             client.sendMessage(payload, False)
         else:
-            logger.error("That client is not connected")
-            self.emitter_send("hive.client.send.error",
+            LOG.error("That client is not connected")
+            self.mycroft_send("hive.client.send.error",
                               {"error": "That client is not connected",
                                "peer": peer}, message.context)
 
@@ -240,18 +248,19 @@ class JarbasServerFactory(WebSocketServerFactory):
             server_msg = Message.serialize(msg)
             self.broadcast(server_msg)
 
-    def handle_message(self, message):
+    def handle_message(self, message=None):
         # forward internal messages to clients if they are the target
         message = Message.deserialize(message)
         if message.type == "complete_intent_failure":
-            message.type = "hive.mind.complete_intent_failure"
+            message.type = "hive.complete_intent_failure"
         message.context = message.context or {}
-        peer = message.context.get("source")
+        peer = message.context.get("destination")
         if peer and peer in self.clients:
-            logger.info("forwarding message to peer: " + peer)
             client_data = self.clients[peer] or {}
             client = client_data.get("object")
-            client.sendMessage(bytes(message.serialize(), "utf-8"), False)
+            message = message.serialize()
+            client.sendMessage(bytes(message, encoding="utf-8"),
+                               False)
 
     def shutdown(self):
         self.bus.remove('message', self.handle_message)
@@ -259,36 +268,31 @@ class JarbasServerFactory(WebSocketServerFactory):
         self.bus.remove('hive.client.send', self.handle_send)
 
 
-def start_mind(config=None, emitter=None):
+def start_mind(config=None, bus=None):
     # server
-    config = config or Configuration.get() \
-        .get("hivemind", {}) \
-        .get("master mind", {})
+    config = config or {}
     host = config.get("host", "0.0.0.0")
-    port = config.get("port", 5678)
-    use_ssl = config.get("ssl", False)
+    port = config.get("port", DEFAULT_PORT)
+    # TODO non-ssl support
+    use_ssl = config.get("ssl", USE_SSL)
     max_connections = config.get("max_connections", -1)
-    address = u"wss://" + host + u":" + str(port)
-    cert = config.get("cert_file", expanduser(
-        '~/jarbas/hivemind/certs/default.crt'))
-    key = config.get("key_file", expanduser(
-        '~/jarbas/hivemind/certs/default.key'))
+    address = u"wss://" + str(host) + u":" + str(port)
+    cert = config.get("cert_file", DEFAULT_SSL_CRT)
+    key = config.get("key_file", DEFAULT_SSL_KEY)
 
-    factory = JarbasServerFactory(address)
-    factory.create_internal_emitter()
-    factory.protocol = JarbasServerProtocol
+    factory = JarbasMind(bus=bus)
+    factory.protocol = JarbasMindProtocol
     if max_connections >= 0:
         factory.setProtocolOptions(maxConnections=max_connections)
 
     if not exists(key) or not exists(cert):
-        logger.warning("ssl keys dont exist, creating self signed")
-        dir = dirname(__file__) + "/certs"
+        LOG.warning("ssl keys dont exist, creating self signed")
         name = key.split("/")[-1].replace(".key", "")
-        create_self_signed_cert(dir, name)
-        cert = dir + "/" + name + ".crt"
-        key = dir + "/" + name + ".key"
-        logger.info("key created at: " + key)
-        logger.info("crt created at: " + cert)
+        create_self_signed_cert(CERTS_PATH, name)
+        cert = CERTS_PATH + "/" + name + ".crt"
+        key = CERTS_PATH + "/" + name + ".key"
+        LOG.info("key created at: " + key)
+        LOG.info("crt created at: " + cert)
         # update config with new keys
         config["cert_file"] = cert
         config["key_file"] = key
@@ -298,6 +302,7 @@ def start_mind(config=None, emitter=None):
     contextFactory = ssl.DefaultOpenSSLContextFactory(key, cert)
 
     reactor.listenSSL(port, factory, contextFactory)
+    print("Starting mind: ", address)
     reactor.run()
 
 

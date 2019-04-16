@@ -7,7 +7,7 @@ from time import sleep
 
 from autobahn.twisted.websocket import WebSocketClientFactory, \
     WebSocketClientProtocol
-from fbchat import log, Client
+from fbchat import log, Client, ThreadType
 from fbchat.utils import Message
 from twisted.internet import reactor, ssl
 from twisted.internet.protocol import ReconnectingClientFactory
@@ -24,30 +24,37 @@ class FaceBot(Client):
     def bind(self, protocol):
         self.protocol = protocol
 
-    def onMessage(self, author_id, message_object, thread_id, thread_type, **kwargs):
+    def onMessage(self, author_id, message_object, thread_id, thread_type,
+                  **kwargs):
         self.markAsDelivered(author_id, thread_id)
         self.markAsRead(author_id)
 
-        log.info("{} from {} in {}".format(message_object, thread_id, thread_type.name))
+        log.info("{} from {} in {}".format(message_object, thread_id,
+                                           thread_type.name))
 
-        # If you're not the author, echo
+        # If you're not the author, process
         if author_id != self.uid:
+            if thread_type == ThreadType.GROUP:
+                name = self.fetchUserInfo(self.uid)[self.uid].name
+                if "@" + name not in message_object.text:
+                    return
             msg = {"data": {"utterances": [message_object.text],
                             "lang": "en-us"},
                    "type": "recognizer_loop:utterance",
                    "context": {"source": self.protocol.peer,
-                               "destinatary": "https_server", "platform": platform,
-                               "user": author_id, "fb_chat_id": author_id,
-                               "target": "fbchat"}}
+                               "destination": "hive_mind",
+                               "platform": platform,
+                               "user": author_id,
+                               "fb_chat_id": thread_id,
+                               "thread_type": thread_type.name}}
             msg = json.dumps(msg)
-            self.protocol.clients[author_id] = {"type": thread_type}
-            self.protocol.sendMessage(bytes(msg, "utf-8"), False)
+            msg = bytes(msg, encoding="utf-8")
+            self.protocol.sendMessage(msg, False)
 
 
-class JarbasFacebookClientProtocol(WebSocketClientProtocol):
+class JarbasFacebookBridgeProtocol(WebSocketClientProtocol):
     facebook = None
     chat_thread = None
-    clients = {}
     MAIL = ""
     PASSWD = ""
 
@@ -56,14 +63,14 @@ class JarbasFacebookClientProtocol(WebSocketClientProtocol):
         self.facebook.listen()
 
     def onConnect(self, response):
-        logger.info("Server connected: {0}".format(response.peer))
+        logger.info("[INFO] Server connected: {0}".format(response.peer))
         self.factory.client = self
         self.factory.status = "connected"
         self.MAIL = self.factory.mail
         self.PASSWD = self.factory.passwd
 
     def onOpen(self):
-        logger.info("WebSocket connection open. ")
+        logger.info("[INFO] WebSocket connection open. ")
 
         self.chat_thread = Thread(target=self.start_fb_chat)
         self.chat_thread.setDaemon(True)
@@ -84,51 +91,64 @@ class JarbasFacebookClientProtocol(WebSocketClientProtocol):
 
             if utterance:
                 user_id = msg["context"]["fb_chat_id"]
+                thread_type = msg["context"]["thread_type"]
+                if thread_type == "GROUP":
+                    thread_type = ThreadType.GROUP
+                else:
+                    thread_type = ThreadType.USER
                 self.facebook.send(Message(text=utterance),
                                    thread_id=user_id,
-                                   thread_type=self.clients[user_id]["type"])
+                                   thread_type=thread_type)
         else:
             pass
 
     def onClose(self, wasClean, code, reason):
-        logger.info("WebSocket connection closed: {0}".format(reason))
+        logger.info("[INFO] WebSocket connection closed: {0}".format(reason))
         self.factory.client = None
         self.factory.status = "disconnected"
 
 
-class JarbasFacebookClientFactory(WebSocketClientFactory, ReconnectingClientFactory):
-    protocol = JarbasFacebookClientProtocol
-    name = "facebook bridge"
-    mail = "fake@mail.com"
-    passwd = "ChangeMe"
+class JarbasFacebookBridge(WebSocketClientFactory,
+                           ReconnectingClientFactory):
+    protocol = JarbasFacebookBridgeProtocol
 
-    def __init__(self, *args, **kwargs):
-        super(JarbasFacebookClientFactory, self).__init__(*args, **kwargs)
+    def __init__(self, mail, password, name="facebook bridge", *args,
+                 **kwargs):
+        super(JarbasFacebookBridge, self).__init__(*args, **kwargs)
         self.status = "disconnected"
+        self.name = name
         self.client = None
+        self.mail = mail
+        self.passwd = password
 
     # websocket handlers
     def clientConnectionFailed(self, connector, reason):
-        logger.info("Client connection failed: " + str(reason) + " .. retrying ..")
+        logger.info(
+            "Client connection failed: " + str(reason) + " .. retrying ..")
         self.status = "disconnected"
         self.retry(connector)
 
     def clientConnectionLost(self, connector, reason):
-        logger.info("Client connection lost: " + str(reason) + " .. retrying ..")
+        logger.info(
+            "Client connection lost: " + str(reason) + " .. retrying ..")
         self.status = "disconnected"
         self.retry(connector)
 
 
 def connect_to_facebook(mail, password, host="127.0.0.1", port=5678,
-                        name="facebook bridge", api="test_key", useragent=platform):
-    authorization = name + ":" + api
-    usernamePasswordDecoded = bytes(authorization, "utf-8")
+                        name="Jarbas Facebook Bridge", api="fb_key",
+                        useragent=platform):
+    authorization = bytes(name + ":" + api, encoding="utf-8")
+    usernamePasswordDecoded = authorization
     api = base64.b64encode(usernamePasswordDecoded)
     headers = {'authorization': api}
     address = u"wss://" + host + u":" + str(port)
-    factory = JarbasFacebookClientFactory(address, headers=headers,
-                                          useragent=useragent)
-    factory.protocol = JarbasFacebookClientProtocol
+    logger.info("[INFO] connecting to hive mind at " + address)
+    factory = JarbasFacebookBridge(mail=mail,
+                                   password=password,
+                                   name=name, headers=headers,
+                                   useragent=useragent)
+    factory.protocol = JarbasFacebookBridgeProtocol
     contextFactory = ssl.ClientContextFactory()
     reactor.connectSSL(host, port, factory, contextFactory)
     reactor.run()
@@ -136,4 +156,6 @@ def connect_to_facebook(mail, password, host="127.0.0.1", port=5678,
 
 if __name__ == '__main__':
     # TODO arg parse
-    connect_to_facebook("", "")
+    mail = "xx@mail.com"
+    pwd = "NotThis"
+    connect_to_facebook(mail, pwd)

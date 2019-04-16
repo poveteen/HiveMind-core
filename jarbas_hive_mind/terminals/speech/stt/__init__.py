@@ -15,13 +15,13 @@
 import json
 import re
 from abc import ABCMeta, abstractmethod
-from requests import post
 
+from requests import post
 from speech_recognition import Recognizer
 
 conf = {"lang": "en-us",
         "stt": {
-            "module": "pocketsphinx",
+            "module": "google",
             "deepspeech_server": {
                "uri": "http://localhost:8080/stt"
             },

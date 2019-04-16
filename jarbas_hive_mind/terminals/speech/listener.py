@@ -14,20 +14,28 @@
 #
 import sys
 import time
-from requests import RequestException, HTTPError
-from requests.exceptions import ConnectionError
 from threading import Thread
 
 import speech_recognition as sr
-from jarbas_hive_mind.terminals.speech.hotword_factory import HotWordFactory
-from jarbas_hive_mind.terminals.speech.mic import MutableMicrophone, ResponsiveRecognizer
-from jarbas_hive_mind.terminals.speech.stt import STTFactory
 from pyee import EventEmitter
+from requests import RequestException, HTTPError
+from requests.exceptions import ConnectionError
+
+from jarbas_hive_mind.terminals.speech.hotword_factory import HotWordFactory
+from jarbas_hive_mind.terminals.speech.mic import MutableMicrophone, \
+    ResponsiveRecognizer
+from jarbas_hive_mind.terminals.speech.stt import STTFactory
 
 if sys.version_info[0] < 3:
     from Queue import Queue, Empty
 else:
     from queue import Queue, Empty
+
+import logging
+
+logger = logging.getLogger("listener")
+logger.addHandler(logging.StreamHandler(sys.stdout))
+logger.setLevel("INFO")
 
 conf = {
     "listener": {
@@ -40,15 +48,15 @@ conf = {
         "energy_ratio": 1.5,
         "wake_word": "hey mycroft",
         "stand_up_word": "wake up"
-      },
+    },
     "stt": {
         "deepspeech_server": {
-           "uri": "http://localhost:8080/stt"
+            "uri": "http://localhost:8080/stt"
         },
         "kaldi": {
-           "uri": "http://localhost:8080/client/dynamic/recognize"
+            "uri": "http://localhost:8080/client/dynamic/recognize"
         }
-        }
+    }
 }
 
 
@@ -143,7 +151,7 @@ class AudioConsumer(Thread):
     @staticmethod
     def _audio_length(audio):
         return float(len(audio.frame_data)) / (
-            audio.sample_rate * audio.sample_width)
+                audio.sample_rate * audio.sample_width)
 
     # TODO: Localization
     def process(self, audio):
@@ -154,11 +162,10 @@ class AudioConsumer(Thread):
         self.emitter.emit("recognizer_loop:wakeword", payload)
 
         if self._audio_length(audio) < self.MIN_AUDIO_SIZE:
-            print("Audio too short to be processed")
+            logger.error("[ERROR] Audio too short to be processed")
         else:
             transcription = self.transcribe(audio)
             if transcription:
-
                 # STT succeeded, send the transcribed speech on for processing
                 payload = {
                     'utterances': [transcription],
@@ -170,29 +177,27 @@ class AudioConsumer(Thread):
         try:
             # Invoke the STT engine on the audio clip
             text = self.stt.execute(audio).lower().strip()
-            print("STT: " + text)
+            logger.info("[INFO] STT: " + text)
             return text
         except sr.RequestError as e:
-            print("Could not request Speech Recognition {0}".format(e))
+            logger.error(
+                "[ERROR] Could not request Speech Recognition {0}".format(e))
         except ConnectionError as e:
-            print("Connection Error: {0}".format(e))
+            logger.error("[ERROR] Connection Error: {0}".format(e))
 
             self.emitter.emit("recognizer_loop:no_internet")
         except HTTPError as e:
-            if e.response.status_code == 401:
-                print("Access Denied at mycroft.ai")
-                return "pair my device"  # phrase to start the pairing process
-            else:
-                print(e.__class__.__name__ + ': ' + str(e))
+            logger.error("[ERROR] " + e.__class__.__name__ + ': ' + str(e))
         except RequestException as e:
-            print(e.__class__.__name__ + ': ' + str(e))
+            logger.error("[ERROR] " + e.__class__.__name__ + ': ' + str(e))
         except Exception as e:
             self.emitter.emit('recognizer_loop:speech.recognition.unknown')
             if isinstance(e, IndexError):
-                print('no words were transcribed')
+                logger.error('[ERROR] no words were transcribed')
             else:
-                print(e)
-            print("Speech Recognition could not understand audio")
+                logger.exception(e)
+            logger.error(
+                "[ERROR] Speech Recognition could not understand audio")
             return None
         dialog_name = 'not connected to the internet'
         self.emitter.emit('speak', {'utterance': dialog_name})
@@ -247,7 +252,7 @@ class RecognizerLoop(EventEmitter):
         self.state = RecognizerLoopState()
 
     def create_hot_word_engines(self):
-        print("creating hotword engines")
+        logger.info("[INFO] creating secondary hotword engines")
         hot_words = self.config_core.get("hotwords", {})
         for word in hot_words:
             data = hot_words[word]
@@ -265,7 +270,7 @@ class RecognizerLoop(EventEmitter):
 
     def create_wake_word_recognizer(self):
         # Create a local recognizer to hear the wakeup word, e.g. 'Hey Mycroft'
-        print("creating wake word engine")
+        logger.info("[INFO] creating main wake word engine")
         word = self.config.get("wake_word", "hey mycroft")
         # TODO remove this, only for server settings compatibility
         phonemes = self.config.get("phonemes")
@@ -283,7 +288,7 @@ class RecognizerLoop(EventEmitter):
         return HotWordFactory.create_hotword(word, config, self.lang)
 
     def create_wakeup_recognizer(self):
-        print("creating stand up word engine")
+        logger.info("[INFO] creating stand up word engine")
         word = self.config.get("stand_up_word", "wake up")
         return HotWordFactory.create_hotword(word, lang=self.lang)
 
@@ -355,7 +360,7 @@ class RecognizerLoop(EventEmitter):
                 time.sleep(1)
 
             except KeyboardInterrupt as e:
-                print(e)
+                logger.exception(e)
                 self.stop()
                 raise  # Re-raise KeyboardInterrupt
 

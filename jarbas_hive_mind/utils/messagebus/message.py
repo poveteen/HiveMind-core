@@ -15,32 +15,31 @@
 import json
 import re
 
-from jarbas_hive_mind.utils.utils import normalize
+from mycroft_lang_utils.parse import normalize
 
 
-class Message(object):
+class Message:
     """Holds and manipulates data sent over the websocket
 
         Message objects will be used to send information back and forth
         between processes of Mycroft.
 
     Attributes:
-        msg_type (str): type of data sent within the message.
+        type (str): type of data sent within the message.
         data (dict): data sent within the message
         context: info about the message not part of data such as source,
             destination or domain.
     """
 
-    def __init__(self, msg_type, data=None, context=None):
+    def __init__(self, type, data=None, context=None):
         """Used to construct a message object
 
         Message objects will be used to send information back and fourth
-        between processes of mycroft service, voice, skill and cli
+        bettween processes of mycroft service, voice, skill and cli
         """
-        data = data or {}
-        self.type = msg_type
-        self.data = data
-        self.context = context
+        self.type = type
+        self.data = data or {}
+        self.context = context or {}
 
     def serialize(self):
         """This returns a string of the message info.
@@ -74,9 +73,11 @@ class Message(object):
             value(str): This is the string received from the websocket
         """
         obj = json.loads(value)
-        return Message(obj.get('type'), obj.get('data'), obj.get('context'))
+        return Message(obj.get('type') or '',
+                       obj.get('data') or {},
+                       obj.get('context') or {})
 
-    def reply(self, msg_type, data, context=None):
+    def reply(self, type, data=None, context=None):
         """Construct a reply message for a given message
 
         This will take the same parameters as a message object but use
@@ -89,36 +90,24 @@ class Message(object):
         new context generated.
 
         Args:
-            msg_type (str): type of message
+            type (str): type of message
             data (dict): data for message
             context: intented context for new message
 
         Returns:
             Message: Message object to be used on the reply to the message
         """
+        data = data or {}
         context = context or {}
 
-        new_context = self.context if self.context else {}
+        new_context = self.context
         for key in context:
             new_context[key] = context[key]
         if 'target' in data:
             new_context['target'] = data['target']
         elif 'client_name' in context:
             context['target'] = context['client_name']
-        return Message(msg_type, data, context=new_context)
-
-    def forward(self, msg_type, data):
-        """Create a new message with the same context as this message
-        but with the type and data supplied as arguments.
-
-        Arguments:
-            msg_type: (str) message type
-            data: (dict) data the message will carry
-
-        Returns:
-            Message object to forward
-        """
-        return Message(msg_type, data, context=self.context)
+        return Message(type, data, context=new_context)
 
     def response(self, data=None, context=None):
         """Construct a response message for the message
@@ -136,14 +125,14 @@ class Message(object):
         response_message.type += '.response'
         return response_message
 
-    def publish(self, msg_type, data, context=None):
+    def publish(self, type, data, context=None):
         """
         Copy the original context and add passed in context.  Delete
         any target in the new context. Return a new message object with
         passed in data and new context.  Type remains unchanged.
 
         Args:
-            msg_type (str): type of message
+            type (str): type of message
             data (dict): date to send with message
             context: context added to existing context
 
@@ -151,14 +140,14 @@ class Message(object):
             Message: Message object to publish
         """
         context = context or {}
-        new_context = self.context.copy() if self.context else {}
+        new_context = self.context.copy()
         for key in context:
             new_context[key] = context[key]
 
         if 'target' in new_context:
             del new_context['target']
 
-        return Message(msg_type, data, context=new_context)
+        return Message(type, data, context=new_context)
 
     def utterance_remainder(self):
         """
@@ -173,7 +162,6 @@ class Message(object):
         """
         utt = normalize(self.data.get("utterance", ""))
         if utt and "__tags__" in self.data:
-            words = utt.split(" ")
             for token in self.data["__tags__"]:
                 # Substitute only whole words matching the token
                 utt = re.sub(r'\b' + token.get("key", "") + r"\b", "", utt)

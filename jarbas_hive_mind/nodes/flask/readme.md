@@ -28,7 +28,7 @@ some functions require an admin api key
     ap = JarbasFlaskHiveNodeAPI("admin_key")
 
     # get an api key string
-    api = ap.get_api()
+    api = ap.generate_key()
 
     # add a new user
     mail = "fakemail@jarbasai.com"
@@ -36,14 +36,14 @@ some functions require an admin api key
     print ap.new_user(api, mail, name)
 
     # revoke an api
-    print ap.revoke_api(api)
+    print ap.revoke_key(api)
 
 # Determining Intents
 
     ap = JarbasFlaskHiveNodeAPI("api_key")
 
     # what intent will this utterance trigger
-    intent = ap.get_intent("hello world")
+    intent = ap.get_adapt_intent("hello world")
 
     # what intents are registered {"skill_id": ["intent", "list"] }
     intent_dict = ap.get_intent_map()

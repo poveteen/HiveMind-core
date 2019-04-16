@@ -6,9 +6,6 @@ yagmail
 autobahn
 twisted
 sqlalchemy
-tornado==4.5.3
-SpeechRecognition
-responsivevoice
-hclib
-fbchat
-remi
+tornado
+mycroft_lang_utils
+requests==2.20.0

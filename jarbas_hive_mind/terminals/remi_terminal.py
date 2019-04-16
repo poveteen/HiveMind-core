@@ -11,24 +11,24 @@ from remi import start, App, gui
 from twisted.internet import reactor, ssl
 from twisted.internet.protocol import ReconnectingClientFactory
 
-logger = logging.getLogger("Standalone_Jarbas_Remi_Client")
+platform = "JarbasREMITerminalv0.1"
+
+logger = logging.getLogger(platform)
 logger.addHandler(logging.StreamHandler(sys.stdout))
 logger.setLevel("INFO")
 
-platform = "JarbasREMITerminalv0.1"
 
-
-class JarbasRemiClientProtocol(WebSocketClientProtocol):
+class JarbasRemiTerminalProtocol(WebSocketClientProtocol):
     remi = None
 
     def onConnect(self, response):
-        logger.info("Server connected: {0}".format(response.peer))
+        logger.info("[INFO] Server connected: {0}".format(response.peer))
         self.factory.client = self
         self.factory.status = "connected"
 
     def onOpen(self):
-        logger.info("WebSocket connection open. ")
-        RemiClient.protocol = self
+        logger.info("[INFO] WebSocket connection open. ")
+        RemiTerminal.protocol = self
 
     def onMessage(self, payload, isBinary):
         if not isBinary:
@@ -36,39 +36,48 @@ class JarbasRemiClientProtocol(WebSocketClientProtocol):
             msg = json.loads(payload)
             if msg.get("type", "") == "speak":
                 utterance = msg["data"]["utterance"]
-                logger.info("Output: " + utterance)
-                RemiClient.history_widget.append(
+                logger.info("[OUTPUT] " + utterance)
+                RemiTerminal.history_widget.append(
                     "Jarbas: " + utterance.lower())
+            elif msg.get("type", "") == "hive.complete_intent_failure":
+                logger.error("[ERROR] complete intent failure")
         else:
             pass
 
     def onClose(self, wasClean, code, reason):
-        logger.info("WebSocket connection closed: {0}".format(reason))
+        logger.info("[INFO] WebSocket connection closed: {0}".format(reason))
         self.factory.client = None
         self.factory.status = "disconnected"
+        if "Internalservererror:InvalidAPIkey" in reason:
+            logger.error("[ERROR] invalid user:key provided")
+            # TODO show something in UI ?
+            raise ConnectionAbortedError("invalid user:key provided")
 
 
-class JarbasRemiClientFactory(WebSocketClientFactory, ReconnectingClientFactory):
-    protocol = JarbasRemiClientProtocol
+class JarbasRemiTerminal(WebSocketClientFactory,
+                         ReconnectingClientFactory):
+    protocol = JarbasRemiTerminalProtocol
 
     def __init__(self, *args, **kwargs):
-        super(JarbasRemiClientFactory, self).__init__(*args, **kwargs)
+        super(JarbasRemiTerminal, self).__init__(*args, **kwargs)
         self.status = "disconnected"
         self.client = None
 
     # websocket handlers
     def clientConnectionFailed(self, connector, reason):
-        logger.info("Client connection failed: " + str(reason) + " .. retrying ..")
+        logger.info("[INFO] Client connection failed: " + str(reason) +
+                    " .. retrying ..")
         self.status = "disconnected"
         self.retry(connector)
 
     def clientConnectionLost(self, connector, reason):
-        logger.info("Client connection lost: " + str(reason) + " .. retrying ..")
+        logger.info("[INFO] Client connection lost: " + str(reason) +
+                    " .. retrying ..")
         self.status = "disconnected"
         self.retry(connector)
 
 
-class RemiClient(App):
+class RemiTerminal(App):
     protocol = None
     history_widget = None
     suggestions = ["hello world",
@@ -77,21 +86,25 @@ class RemiClient(App):
                    "tell me a joke"]
     host = "127.0.0.1"
     port = 5678
-    name = "standalone remi client"
-    api = "test_key"
+    name = "Jarbas Remi Terminal"
+    key = "remi_key"
+    authorization = bytes(name + ":" + key, encoding="utf-8")
+    usernamePasswordDecoded = authorization
+    key = base64.b64encode(usernamePasswordDecoded)
 
     def __init__(self, *args):
-        super(RemiClient, self).__init__(*args)
+        super(RemiTerminal, self).__init__(*args)
 
     def main(self):
-        authorization = self.name + ":" + self.api
-        usernamePasswordDecoded = bytes(authorization, "utf-8")
-        api = base64.b64encode(usernamePasswordDecoded)
-        headers = {'authorization': api}
-        address = u"wss://" + self.host + u":" + str(self.port)
-        factory = JarbasRemiClientFactory(address, headers=headers,
-                                          useragent=platform)
-        factory.protocol = JarbasRemiClientProtocol
+        authorization = bytes(self.name + ":" + self.key, encoding="utf-8")
+        usernamePasswordDecoded = authorization
+        key = base64.b64encode(usernamePasswordDecoded)
+
+        headers = {'authorization': key}
+        adress = u"wss://" + self.host + u":" + str(self.port)
+        factory = JarbasRemiTerminal(adress, headers=headers,
+                                     useragent=platform)
+        factory.protocol = JarbasRemiTerminalProtocol
         contextFactory = ssl.ClientContextFactory()
         reactor.connectSSL(self.host, self.port, factory, contextFactory)
 
@@ -112,13 +125,14 @@ class RemiClient(App):
                                          style={'display': 'block',
                                                 'overflow': 'auto'})
 
-        RemiClient.history_widget = gui.ListView.new_from_list((), width=500,
-                                                               height=300,
-                                                               margin='10px')
+        RemiTerminal.history_widget = gui.ListView.new_from_list((), width=500,
+                                                                 height=300,
+                                                                 margin='10px')
 
         self.txt_input = gui.TextInput(width=400, height=30, margin='10px')
-        self.txt_input.set_text('chat: ')
-        self.txt_input.set_on_change_listener(self.on_chat_type)
+        # self.txt_input.set_text('chat: ')
+        # self.txt_input.set_on_change_listener(self.on_chat_type)
+        self.txt_input.set_on_change_listener(self.on_chat_enter)
         # self.txt_input.set_on_enter_listener(self.on_chat_enter)
 
         send_button = gui.Button('Send', width=150, height=30, margin='10px')
@@ -133,65 +147,73 @@ class RemiClient(App):
 
         verticalContainer.append(self.txt_input)
         verticalContainer.append(chatButtonContainer)
-        verticalContainer.append(RemiClient.history_widget)
+        verticalContainer.append(RemiTerminal.history_widget)
         return verticalContainer
 
     def on_suggestion_click(self, widget):
         sug = random.choice(self.suggestions)
-        self.txt_input.set_text('chat: ' + sug)
+        self.txt_input.set_text(sug)
         self.utterance = sug
 
     def on_chat_type(self, widget, newValue):
         self.utterance = str(newValue)
 
     def on_chat_click(self, widget):
-        self.utterance = self.utterance.replace("chat:", "").lower()
-        msg = {"data": {"utterances": [self.utterance], "lang": "en-us"},
-               "type": "recognizer_loop:utterance",
-               "context": {"source": RemiClient.protocol.peer,
-                           "destinatary":
-                               "https_server", "platform": platform}}
-        msg = json.dumps(msg)
-        RemiClient.protocol.sendMessage(bytes(msg, "utf-8"), False)
+        self.utterance = self.utterance.strip()
+        if self.utterance:
+            msg = {"data": {"utterances": [self.utterance], "lang": "en-us"},
+                   "type": "recognizer_loop:utterance",
+                   "context": {"source": RemiTerminal.protocol.peer,
+                               "destination": "hive_mind",
+                               "platform": platform}}
+            msg = json.dumps(msg)
+            msg = bytes(msg, encoding="utf-8")
+            RemiTerminal.protocol.sendMessage(msg, False)
 
-        RemiClient.history_widget.append("you: " + self.utterance.replace("chat:",
-                                                                          "").lower())
-        self.txt_input.set_text('chat: ')
-        self.utterance = ""
+            RemiTerminal.history_widget.append(
+                "you: " + self.utterance.strip())
+            self.txt_input.set_text('')
+            self.utterance = ""
 
     def on_chat_enter(self, widget, userData):
-        self.utterance = userData.replace("chat:", "").lower()
+        self.utterance = userData.strip()
+        if self.utterance:
+            msg = {"data": {"utterances": [self.utterance], "lang": "en-us"},
+                   "type": "recognizer_loop:utterance",
+                   "context": {"source": RemiTerminal.protocol.peer,
+                               "destinatary": "hive_mind",
+                               "platform": platform}}
+            msg = json.dumps(msg)
+            msg = bytes(msg, encoding="utf-8")
+            RemiTerminal.protocol.sendMessage(msg, False)
 
-        msg = {"data": {"utterances": [self.utterance], "lang": "en-us"},
-               "type": "recognizer_loop:utterance",
-               "context": {"source": RemiClient.protocol.peer,
-                           "destinatary":
-                               "https_server", "platform": platform}}
-        msg = json.dumps(msg)
-        RemiClient.protocol.sendMessage(bytes(msg, "utf-8"), False)
-
-        RemiClient.history_widget.append("you: " + self.utterance.replace("chat:",
-                                                                          "").lower())
-        self.txt_input.set_text('chat: ')
-        self.utterance = ""
+            RemiTerminal.history_widget.append(
+                "you: " + self.utterance.strip())
+            self.txt_input.set_text('')
+            self.utterance = ""
 
 
-def connect_to_hivemind_server(host="127.0.0.1", port=5678, name="standalone remi terminal",
-                               api="test_key", remi_host='127.0.0.1', remi_port=8171):
-    RemiClient.host = host
-    RemiClient.port = port
-    RemiClient.name = name
-    RemiClient.api = api
-    start(RemiClient, address=remi_host, port=remi_port, multiple_instance=True,
+def connect_to_hivemind_server(host="127.0.0.1", port=5678,
+                               name="Jarbas Remi Terminal",
+                               key="remi_key", remi_host='127.0.0.1',
+                               remi_port=8171):
+    RemiTerminal.host = host
+    RemiTerminal.port = port
+    RemiTerminal.name = name
+    RemiTerminal.key = key
+    start(RemiTerminal, address=remi_host, port=remi_port,
+          multiple_instance=True,
           enable_file_cache=True, update_interval=0.1, start_browser=False)
 
 
-def connect_to_hivemind_standalone(host="127.0.0.1", port=5678, name="standalone remi terminal", api="test_key"):
-    RemiClient.host = host
-    RemiClient.port = port
-    RemiClient.name = name
-    RemiClient.api = api
-    start(RemiClient, standalone=True)
+def connect_to_hivemind_standalone(host="127.0.0.1", port=5678,
+                                   name="Jarbas Remi Terminal",
+                                   key="remi_key"):
+    RemiTerminal.host = host
+    RemiTerminal.port = port
+    RemiTerminal.name = name
+    RemiTerminal.key = key
+    start(RemiTerminal, standalone=True)
 
 
 if __name__ == "__main__":

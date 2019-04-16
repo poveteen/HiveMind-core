@@ -1,16 +1,17 @@
+import logging
 from threading import Thread
 
-from mycroft.configuration.config import Configuration
-from mycroft.messagebus.client.ws import WebsocketClient
-from mycroft.messagebus.message import Message
-
 from jarbas_hive_mind.nodes.flask.base import *
-from jarbas_hive_mind.nodes.micro_intent_service import MicroIntentService
+from jarbas_hive_mind.utils.messagebus.message import Message
+from jarbas_hive_mind.utils.messagebus.ws import WebsocketClient
+
+platform = "FlaskHiveNodev0.1"
+LOG = logging.getLogger(platform)
+LOG.setLevel("INFO")
 
 ws = None
 answers = {}
 users_on_hold = {}
-intents = None
 timeout = 60
 
 
@@ -29,7 +30,10 @@ def ask(utterance, lang="en-us"):
     user = request.headers["Authorization"]
     data = {"utterances": [utterance], "lang": lang}
     user_id = str(ip) + ":" + str(user)
-    context = {"source": ip, "target": user, "user_id": user_id}
+    LOG.info("[IP] " + ip + " [UTTERANCE] " + utterance)
+    context = {"source": user_id,
+               "destination": "skills",
+               "platform": platform}
     message = Message("recognizer_loop:utterance", data, context)
     # clean prev answer # TODO figure out how to answer both, timestamps?
     if user_id in answers:
@@ -53,12 +57,14 @@ def get_answer():
     user_id = str(ip) + ":" + str(user)
     if users_on_hold.get(user_id, False):
         # if answer is ready
+        LOG.info("[ANSWER READY] " + ip)
         answer = Message("speak", answers[user_id]["data"], answers[
             user_id]["context"]).serialize()
         users_on_hold.pop(user_id)
         answers.pop(user_id)
         result = {"status": "done", "answer": answer}
     else:
+        LOG.info("[PROCESSING ANSWER] " + ip)
         result = {"status": "processing"}
     return nice_json(result)
 
@@ -72,51 +78,11 @@ def cancel_answer():
     ip = request.remote_addr
     user = request.headers["Authorization"]
     user_id = str(ip) + ":" + str(user)
-    if user_id in users_on_hold.keys():
+    if user_id in list(users_on_hold.keys()):
+        LOG.info("[CANCEL REQUEST] " + ip)
         users_on_hold.pop(user_id)
         answers.pop(user_id)
     result = {"status": "canceled"}
-    return nice_json(result)
-
-
-@app.route("/get_intent/<lang>/<utterance>", methods=['PUT', 'GET'])
-@noindex
-@donation
-@requires_auth
-def get_intent(utterance, lang="en-us"):
-    global intents
-    intent = intents.get_intent(utterance, lang)
-    result = intent or {}
-    return nice_json(result)
-
-
-@app.route("/intent_map/<lang>/", methods=['PUT', 'GET'])
-@noindex
-@donation
-@requires_auth
-def get_intent_map(lang="en-us"):
-    global intents
-    result = intents.get_intent_map(lang)
-    return nice_json(result)
-
-
-@app.route("/vocab_map/<lang>/", methods=['PUT', 'GET'])
-@noindex
-@donation
-@requires_auth
-def get_vocab_map(lang="en-us"):
-    global intents
-    result = intents.get_vocab_map(lang)
-    return nice_json(result)
-
-
-@app.route("/skills_map/<lang>/", methods=['PUT', 'GET'])
-@noindex
-@donation
-@requires_auth
-def get_skills_map(lang="en-us"):
-    global intents
-    result = intents.get_skills_map(lang)
     return nice_json(result)
 
 
@@ -124,44 +90,34 @@ def listener(message):
     ''' listens for speak messages and checks if we are supposed to send it to some user '''
     global users_on_hold, answers
     message.context = message.context or {}
-    user = message.context.get("user_id", "")
-
-    if user in users_on_hold.keys():  # are we waiting to answer this user?
+    user = message.context.get("destination", "")
+    if user in list(
+            users_on_hold.keys()):  # are we waiting to answer this user?
 
         if answers[user] is not None:
-            print("expanding answer for user:", user)
             # update data and context
-            for k in message.context.keys():
-                if k == "client_name" and ":https_server" not in message.context[k]:
-                    message.context["client_name"] += ":https_server"
+            for k in list(message.context.keys()):
                 answers[user]["context"][k] = message.context[k]
-            for k in message.data.keys():
+            for k in list(message.data.keys()):
                 # update utterance
                 if k == "utterance":
-                    print("appending utterance: ", message.data[
-                        "utterance"], " for user: ", user)
                     answers[user]["data"]["utterance"] = \
                         answers[user]["data"]["utterance"] + ". " + \
-                        message.data[
-                            "utterance"]
+                        message.data["utterance"]
                 else:
                     answers[user]["data"][k] = message.data[k]
         else:
-            print("composing answer for user:", user)
             # create answer
-            if "client_name" not in message.context:
-                message.context["client_name"] = user
-            message.context["client_name"] += ":https_server"
-            answers[user] = {"data": message.data, "context": message.context}
+            answers[user] = {"data": message.data,
+                             "context": message.context}
 
 
 def end_wait(message):
     ''' stop capturing answers for this user '''
     global users_on_hold, answers
-    user = message.context.get("user_id", "")
-    print("ending answer capture for user:", user)
-    print(answers)
-    if user in users_on_hold.keys():
+    user = message.context.get("destination", "")
+    if user in list(users_on_hold.keys()):
+        LOG.info("[REQUEST COMPLETE] " + user.split(":")[0])
         # mark as answered
         users_on_hold[user] = True
         # process possible failure scenarios
@@ -173,13 +129,13 @@ def end_wait(message):
         # no answer but end of handler
         elif answers[user] is None:
             answers[user] = {"data": {"utterance": "something went wrong, "
-                                                   "ask me later"}, "context":
-                                 context}
+                                                   "ask me later"},
+                             "context": context}
 
 
 def launch(config=None):
-    global app, ws, intents, timeout
-    config = config or Configuration.get().get("hivemind", {}).get("flask_node", {})
+    global app, ws, timeout
+    config = config or {}
     # connect to internal mycroft
     ws = WebsocketClient()
     ws.on("mycroft.skill.handler.complete", end_wait)
@@ -190,7 +146,6 @@ def launch(config=None):
     event_thread.start()
     port = config.get("port", 6712)
     timeout = config.get("timeout", timeout)
-    intents = MicroIntentService(ws)
     start(app, port)
 
 

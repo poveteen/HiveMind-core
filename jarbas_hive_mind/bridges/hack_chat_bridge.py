@@ -1,124 +1,157 @@
 import base64
 import json
 import logging
-import random
 import sys
 from threading import Thread
 from time import sleep
 
-import hclib
 from autobahn.twisted.websocket import WebSocketClientFactory, \
     WebSocketClientProtocol
 from twisted.internet import reactor, ssl
 from twisted.internet.protocol import ReconnectingClientFactory
 
-platform = "JarbasHackChatBridgev0.1"
+platform = "JarbasHackChatBridgev0.2"
 logger = logging.getLogger(platform)
 logger.addHandler(logging.StreamHandler(sys.stdout))
 logger.setLevel("INFO")
 
 
-class JarbasHackChatClientProtocol(WebSocketClientProtocol):
+class HackChat:
+    """A library to connect to https://hack.chat.
+    <on_message> is <list> of callback functions to receive data from
+    https://hack.chat. Add your callback functions to this attribute.
+    e.g., on_message += [my_callback]
+    The callback function should have 3 parameters, the first for the
+    <HackChat> object, the second for the message someone sent and the
+    third for the nickname of the sender of the message.
+
+    https://github.com/gkbrk/hackchat
+    """
+
+    def __init__(self, nick, channel="programming", debug=True):
+        """Connects to a channel on https://hack.chat.
+        Keyword arguments:
+        nick -- <str>; the nickname to use upon joining the channel
+        channel -- <str>; the channel to connect to on https://hack.chat
+        """
+
+        import websocket
+        self.debug = debug
+        self.nick = nick
+        self.channel = channel
+        self.online_users = []
+        self.on_message = []
+        self.on_join = []
+        self.on_open = []
+        self.on_leave = []
+        self.ws = websocket.create_connection("wss://hack.chat/chat-ws")
+        self._send_packet({"cmd": "join", "channel": channel, "nick": nick})
+        Thread(target=self._ping_thread).start()
+
+    def send_message(self, msg):
+        """Sends a message on the channel."""
+        self._send_packet({"cmd": "chat", "text": msg})
+
+    def _send_packet(self, packet):
+        """Sends <packet> (<dict>) to https://hack.chat."""
+        encoded = json.dumps(packet)
+        self.ws.send(encoded)
+
+    def run(self):
+        """Sends data to the callback functions."""
+        while True:
+            result = json.loads(self.ws.recv())
+            if self.debug:
+                print(result)
+
+            if result["cmd"] == "chat" and not result["nick"] == self.nick:
+                for handler in list(self.on_message):
+                    handler(self, result["text"], result["nick"])
+            elif result["cmd"] == "onlineAdd":
+                self.online_users.append(result["nick"])
+                for handler in list(self.on_join):
+                    handler(self, result["nick"])
+            elif result["cmd"] == "onlineRemove":
+                self.online_users.remove(result["nick"])
+                for handler in list(self.on_leave):
+                    handler(self, result["nick"])
+            elif result["cmd"] == "onlineSet":
+                for nick in result["nicks"]:
+                    self.online_users.append(nick)
+                for handler in list(self.on_open):
+                    handler(self, result["nicks"])
+
+    def _ping_thread(self):
+        """Retains the websocket connection."""
+        while self.ws.connected:
+            self._send_packet({"cmd": "ping"})
+            sleep(60)
+
+
+class JarbasHackChatBridgeProtocol(WebSocketClientProtocol):
     hackchat = None
-    online_users = []
-    connector = None
-    waiting_messages = []
-    extra_delay = 0
-    last_sent = ""
+    chat_thread = None
     username = "Jarbas_BOT"
     hack_chat_channel = "JarbasAI"
 
-    def send_queued_message(self):
-        while True:
-            if len(self.waiting_messages):
-                message = ""
-                for idx, utterance in enumerate(self.waiting_messages):
-                    if utterance:
-                        message += utterance + "\n"
-                    self.waiting_messages[idx] = ""
-                    if len(message) >= 180:
-                        words = message.split(" ")
-                        new = ""
-                        for idx, word in enumerate(words):
-                            if len(new) < 180:
-                                new += word + " "
-                                words[idx] = ""
-                        words = [w for w in words if w]
-                        self.waiting_messages.insert(0, " ".join(words))
-                        message = new
-                        break
-
-                if self.extra_delay:
-                    sleep(self.extra_delay)
-                logger.info("Sent: " + message)
-                self.connector.send(message)
-                self.last_sent = message
-                sleep(random.choice([1, 1.2, 1.5, 1.7, 2, 2.2, 3, 2.6]))
-                self.waiting_messages = [ut for ut in self.waiting_messages
-                                         if ut]
-            else:
-                sleep(1)
+    @property
+    def online_users(self):
+        try:
+            return self.hackchat.online_users
+        except:
+            return []
 
     def start_hack_chat(self):
-        self.hackchat = hclib.HackChat(self.on_hack_message, self.username,
-                                       self.hack_chat_channel)
+        self.hackchat = HackChat(self.username, self.hack_chat_channel)
+        self.hackchat.on_message += [self.on_hack_message]
+        self.hackchat.on_join += [self.on_hack_join]
+        self.hackchat.on_open += [self.on_hack_open]
+        self.hackchat.on_leave += [self.on_hack_leave]
+        self.hackchat.run()
 
-    def on_hack_message(self, connector, data):
-        # The second parameter (<data>) is the data received.
-        self.connector = connector
-        self.online_users = connector.onlineUsers
-        user = data.get("nick", "")
-        if user and user == self.username:
-            # dont answer self
-            return
-        # Checks if we are being limited
-        if data["type"] == "warn":
-            logger.info(data["warning"])
-            self.extra_delay = 5
-            # resend failed
-            self.waiting_messages.insert(0, self.last_sent)
-        # Checks if someone joined the channel.
-        elif data["type"] == "online add":
-            # Sends a greeting the person joining the channel.
-            #
-            connector.send("Hello {}".format(user))
-        elif data["type"] == "message":
-            utterance = data["text"].lower()
-            if utterance == "stop":
-                self.waiting_messages = []
-                connector.send("ok, stopped")
-                return
-            if "@" + self.username.lower() in utterance:
-                utterance = utterance.replace("@" + self.username.lower(), "")
-                msg = {"data": {"utterances": [utterance], "lang": "en-us"},
-                       "type": "recognizer_loop:utterance",
-                       "context": {"source": self.peer, "destinatary":
-                           "https_server", "platform": platform,
-                                   "hack_chat_nick": user, "user": user,
-                                   "target": "hackchat"}}
-                msg = json.dumps(msg)
-                self.sendMessage(bytes(msg, "utf-8"), False)
+    def on_hack_open(self, connector, users):
+        if len(users) == 1:
+            self.hackchat.send_message("This channel belongs to me")
         else:
-            logger.debug(str(data))
+            self.hackchat.send_message("I see {} online users"
+                                       .format(len(users) - 1))
+
+    def on_hack_join(self, connector, user):
+        self.hackchat.send_message("Hello @{}".format(user))
+
+    def on_hack_leave(self, connector, user):
+        self.hackchat.send_message("@{} vanished from cyberspace".format(user))
+
+    def on_hack_message(self, connector, message, user):
+        utterance = message.lower().strip()
+        if "@" + self.username.lower() in utterance:
+            utterance = utterance.replace("@" + self.username.lower(), "")
+            msg = {"data": {"utterances": [utterance], "lang": "en-us"},
+                   "type": "recognizer_loop:utterance",
+                   "context": {
+                       "source": self.peer,
+                       "destination": "hive_mind",
+                       "platform": platform,
+                       "hack_chat_nick": user,
+                       "user": user}}
+            msg = json.dumps(msg)
+            msg = bytes(msg, encoding="utf-8")
+            self.sendMessage(msg, False)
 
     def onConnect(self, response):
-        logger.info("Server connected: {0}".format(response.peer))
+        logger.info("[INFO] " + "Server connected: {0}".format(response.peer))
         self.factory.client = self
         self.factory.status = "connected"
         self.username = self.factory.username
         self.hack_chat_channel = self.factory.channel
-        logger.info("Channel: {0}".format(self.hack_chat_channel))
-        logger.info("Username: {0}".format(self.username))
+        logger.info("[INFO] " + "Channel: {0}".format(self.hack_chat_channel))
+        logger.info("[INFO] " + "Username: {0}".format(self.username))
 
     def onOpen(self):
-        logger.info("WebSocket connection open. ")
+        logger.info("[INFO] " + "WebSocket connection open. ")
         self.chat_thread = Thread(target=self.start_hack_chat)
         self.chat_thread.setDaemon(True)
         self.chat_thread.start()
-
-        self.message_thread = Thread(target=self.send_queued_message)
-        self.message_thread.setDaemon(True)
-        self.message_thread.start()
 
     def onMessage(self, payload, isBinary):
         if not isBinary:
@@ -126,7 +159,7 @@ class JarbasHackChatClientProtocol(WebSocketClientProtocol):
             msg = json.loads(payload)
             user = msg.get("context", {}).get("hack_chat_nick", "")
             if user not in self.online_users:
-                logger.info("invalid hack chat user: " + user)
+                logger.error("[ERROR] " + "invalid hack chat user: " + user)
                 return
             utterance = ""
             if msg.get("type", "") == "speak":
@@ -136,59 +169,60 @@ class JarbasHackChatClientProtocol(WebSocketClientProtocol):
 
             if utterance:
                 utterance = "@{} , ".format(user) + utterance
-                self.waiting_messages.append(utterance)
-                logger.info("Queued: " + utterance)
+                self.hackchat.send_message(utterance)
         else:
             pass
 
     def onClose(self, wasClean, code, reason):
-        logger.info("WebSocket connection closed: {0}".format(reason))
-        if self.hackchat is not None:
-            self.hackchat.leave()
-        self.message_thread.join()
-        self.chat_thread.join()
+        logger.info(
+            "[INFO] " + "WebSocket connection closed: {0}".format(reason))
+        if self.chat_thread:
+            self.chat_thread.join(0)
         self.hackchat = None
-        self.online_users = []
-        self.connector = None
         self.factory.client = None
         self.factory.status = "disconnected"
-        sys.exit()
+        if "Internalservererror:InvalidAPIkey" in reason:
+            logger.error("[ERROR] invalid user:key provided")
+            raise ConnectionAbortedError("invalid user:key provided")
 
 
-class JarbasHackChatClientFactory(WebSocketClientFactory, ReconnectingClientFactory):
-    protocol = JarbasHackChatClientProtocol
-    username = "jarbasLebot"
-    channel = "JarbasBotDemoBridge"
+class JarbasHackChatBridge(WebSocketClientFactory,
+                           ReconnectingClientFactory):
+    protocol = JarbasHackChatBridgeProtocol
 
-    def __init__(self, *args, **kwargs):
-        super(JarbasHackChatClientFactory, self).__init__(*args, **kwargs)
+    def __init__(self, username, channel, *args, **kwargs):
+        super(JarbasHackChatBridge, self).__init__(*args, **kwargs)
         self.status = "disconnected"
         self.client = None
+        self.username = username
+        self.channel = channel
 
     # websocket handlers
     def clientConnectionFailed(self, connector, reason):
-        logger.info("Client connection failed: " + str(reason) + " .. retrying ..")
+        logger.info("[INFO] " + "Client connection failed: " + str(
+            reason) + " .. retrying ..")
         self.status = "disconnected"
         self.retry(connector)
 
     def clientConnectionLost(self, connector, reason):
-        logger.info("Client connection lost: " + str(reason) + " .. retrying ..")
+        logger.info("[INFO] " + "Client connection lost: " + str(
+            reason) + " .. retrying ..")
         self.status = "disconnected"
         self.retry(connector)
 
 
 def connect_to_hackchat(channel, username="Jarbas_BOT", host="127.0.0.1",
-                        port=5678, name="Standalone HackChat Bridge", api="test_key", useragent=platform):
-    authorization = name + ":" + api
-    usernamePasswordDecoded = bytes(authorization, "utf-8")
+                        port=5678, name="Jarbas HackChat Bridge",
+                        api="hackchat_key", useragent=platform):
+    authorization = bytes(name + ":" + api, encoding="utf-8")
+    usernamePasswordDecoded = authorization
     api = base64.b64encode(usernamePasswordDecoded)
     headers = {'authorization': api}
     address = u"wss://" + host + u":" + str(port)
-    factory = JarbasHackChatClientFactory(address, headers=headers,
-                                          useragent=useragent)
-    factory.channel = channel
-    factory.username = username
-    factory.protocol = JarbasHackChatClientProtocol
+    logger.info("[INFO] connected to hivemind: " + address)
+    factory = JarbasHackChatBridge(channel=channel, username=username,
+                                   headers=headers, useragent=useragent)
+    factory.protocol = JarbasHackChatBridgeProtocol
     contextFactory = ssl.ClientContextFactory()
     reactor.connectSSL(host, port, factory, contextFactory)
     reactor.run()
@@ -196,5 +230,4 @@ def connect_to_hackchat(channel, username="Jarbas_BOT", host="127.0.0.1",
 
 if __name__ == '__main__':
     # TODO arg parse
-    connect_to_hackchat("JarbasAI_" + 10 * random.choice(
-        "qwertyuiopplkjhgfdsazxcvbnm"))
+    connect_to_hackchat("JarbasAI_bot")

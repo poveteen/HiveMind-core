@@ -13,41 +13,35 @@
 # limitations under the License.
 #
 import json
-import ssl
 import time
 import traceback
-from multiprocessing.pool import ThreadPool
 from threading import Event
 
-from pyee import EventEmitter
 from websocket import (WebSocketApp, WebSocketConnectionClosedException,
                        WebSocketException)
 
-from jarbas_hive_mind.utils import create_echo_function
+from jarbas_hive_mind.settings import MYCROFT_WEBSOCKET_CONFIG
+from jarbas_hive_mind.utils import validate_param, create_echo_function
 from jarbas_hive_mind.utils.log import LOG
 from jarbas_hive_mind.utils.messagebus.message import Message
+from jarbas_hive_mind.utils.messagebus.threaded_event_emitter import \
+    ThreadedEventEmitter
 
 
-class WebsocketClient(object):
+class WebsocketClient:
     def __init__(self, host=None, port=None, route=None, ssl=None,
-                 config=None):
-
-        # Calculate the standard Mycroft messagebus websocket address
-        config = config or {
-            "host": "0.0.0.0",
-            "port": 8181,
-            "route": "/core",
-            "ssl": False
-        }
+                 config=MYCROFT_WEBSOCKET_CONFIG):
         host = host or config.get("host")
         port = port or config.get("port")
         route = route or config.get("route")
         ssl = ssl or config.get("ssl")
+        validate_param(host, "websocket.host")
+        validate_param(port, "websocket.port")
+        validate_param(route, "websocket.route")
 
         self.url = WebsocketClient.build_url(host, port, route, ssl)
-        self.emitter = EventEmitter()
+        self.emitter = ThreadedEventEmitter()
         self.client = self.create_client()
-        self.pool = ThreadPool(10)
         self.retry = 5
         self.connected_event = Event()
         self.started_running = False
@@ -60,8 +54,7 @@ class WebsocketClient(object):
     def create_client(self):
         return WebSocketApp(self.url,
                             on_open=self.on_open, on_close=self.on_close,
-                            on_error=self.on_error,
-                            on_message=self.on_message)
+                            on_error=self.on_error, on_message=self.on_message)
 
     def on_open(self):
         LOG.info("Connected")
@@ -91,16 +84,16 @@ class WebsocketClient(object):
         time.sleep(self.retry)
         self.retry = min(self.retry * 2, 60)
         try:
+            self.emitter.emit('reconnecting')
             self.client = self.create_client()
             self.run_forever()
         except WebSocketException:
             pass
 
     def on_message(self, message):
-        self.emitter.emit('message', message)
         parsed_message = Message.deserialize(message)
-        self.pool.apply_async(
-            self.emitter.emit, (parsed_message.type, parsed_message))
+        self.emitter.emit(parsed_message.type, parsed_message)
+        self.emitter.emit('message', message)
 
     def emit(self, message):
         if not self.connected_event.wait(10):
@@ -168,7 +161,7 @@ class WebsocketClient(object):
             else:
                 LOG.debug("Not able to find '" + str(event_name) + "'")
             self.emitter.remove_listener(event_name, func)
-        except ValueError as e:
+        except ValueError:
             LOG.warning('Failed to remove event {}: {}'.format(event_name,
                                                                str(func)))
             for line in traceback.format_stack():
@@ -201,9 +194,7 @@ class WebsocketClient(object):
 
     def run_forever(self):
         self.started_running = True
-        self.client.run_forever(sslopt={"cert_reqs": ssl.CERT_NONE,
-                                        "check_hostname": False,
-                                        "ssl_version": ssl.PROTOCOL_TLSv1})
+        self.client.run_forever()
 
     def close(self):
         self.client.close()

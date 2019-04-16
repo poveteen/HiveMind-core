@@ -55,7 +55,7 @@ class JarbasFlaskHiveNodeAPI(object):
         ''' add a new user, requires admin api '''
         try:
             response = requests.put(
-                self.url+"revoke_api/"+api,
+                self.url + "revoke_key/" + api,
                 headers=self.headers, verify=False
             )
             try:
@@ -70,7 +70,7 @@ class JarbasFlaskHiveNodeAPI(object):
         ''' get an api key string, requires admin api '''
         try:
             response = requests.get(
-                self.url+"get_api",
+                self.url + "generate_key",
                 headers=self.headers, verify=False
             )
             try:
@@ -137,7 +137,7 @@ class JarbasFlaskHiveNodeAPI(object):
         lang = lang or self.lang
         try:
             response = requests.get(
-                self.url+"get_intent/"+lang+"/"+utterance,
+                self.url + "get_adapt_intent/" + lang + "/" + utterance,
                 headers=self.headers, verify=False
             )
             try:

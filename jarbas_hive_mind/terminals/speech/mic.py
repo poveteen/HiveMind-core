@@ -15,7 +15,8 @@
 import audioop
 import collections
 import datetime
-import requests
+import logging
+import sys
 from hashlib import md5
 from os import mkdir
 from os.path import isdir, join
@@ -25,13 +26,19 @@ from threading import Lock
 from time import sleep, time as get_time
 
 import pyaudio
+import requests
 import speech_recognition
-from jarbas_hive_mind.terminals.speech.signal import *
 from speech_recognition import (
     Microphone,
     AudioSource,
     AudioData
 )
+
+from jarbas_hive_mind.terminals.speech.signal import *
+
+logger = logging.getLogger("mic")
+logger.addHandler(logging.StreamHandler(sys.stdout))
+logger.setLevel("INFO")
 
 conf = {
     "listener": {
@@ -131,7 +138,7 @@ class MutableStream(object):
             return self.muted_buffer
         input_latency = self.wrapped_stream.get_input_latency()
         if input_latency > 0.2:
-            print("High input latency: %f" % input_latency)
+            logger.warning("[WARNING] High input latency: %f" % input_latency)
         audio = b"".join(list(frames))
         return audio
 
@@ -220,8 +227,6 @@ class ResponsiveRecognizer(speech_recognition.Recognizer):
 
         self.config = conf
         listener_config = self.config.get('listener')
-        # disable upload
-        print("upload config disabled")
         self.upload_config = {"enable": False}
         # self.upload_config = listener_config.get('wake_word_upload')
         self.wake_word_name = wake_word_recognizer.key_phrase
@@ -368,7 +373,7 @@ class ResponsiveRecognizer(speech_recognition.Recognizer):
             if check_for_signal('buttonPress'):
                 # Signal is still here, assume it was intended to
                 # begin recording
-                print("Button Pressed, wakeword not needed")
+                logger.info("[INFO] Button Pressed, wakeword not needed")
                 return True
 
         return False
@@ -378,39 +383,6 @@ class ResponsiveRecognizer(speech_recognition.Recognizer):
             Signal stop and exit waiting state.
         """
         self._stop_signaled = True
-
-    def _upload_file(self, filename):
-        # disable upload
-        # server = self.upload_config['server']
-        # keyfile = resolve_resource_file('wakeword_rsa')
-        # userfile = expanduser('~/.mycroft/wakeword_rsa')
-
-        # if not isfile(userfile):
-        #    shutil.copy2(keyfile, userfile)
-        #    os.chmod(userfile, 0o600)
-        #    keyfile = userfile
-
-        # address = self.upload_config['user'] + '@' + \
-        #    server + ':' + self.upload_config['folder']
-
-        # self.upload_lock.acquire()
-        # try:
-        #    self.filenames_to_upload.append(filename)
-        #    for i, fn in enumerate(self.filenames_to_upload):
-        #        LOG.debug('Uploading ' + fn + '...')
-        #        os.chmod(fn, 0o666)
-        #        cmd = 'scp -o StrictHostKeyChecking=no -P ' + \
-        #              str(self.upload_config['port']) + ' -i ' + \
-        #              keyfile + ' ' + fn + ' ' + address
-        #        if os.system(cmd) == 0:
-        #            del self.filenames_to_upload[i]
-        #            os.remove(fn)
-        #        else:
-        #            LOG.debug('Could not upload ' + fn + ' to ' + server)
-        # finally:
-        #    self.upload_lock.release()
-        print("upload disabled but tried to execute, neutralized")
-        return
 
     def _wait_until_wake_word(self, source, sec_per_buffer, emitter):
         """Listen continuously on source until a wake word is spoken
@@ -553,7 +525,7 @@ class ResponsiveRecognizer(speech_recognition.Recognizer):
                     self.hot_word_engines[hotword]
             found = engine.found_wake_word(audio_data)
             if found:
-                print("Hot Word: " + hotword)
+                logger.info("[INFO] Hot Word: " + hotword)
                 # If enabled, play a wave file with a short sound to audibly
                 # indicate hotword was detected.
                 if ding:
@@ -562,7 +534,7 @@ class ResponsiveRecognizer(speech_recognition.Recognizer):
                         if file:
                             play_wav(file)
                     except Exception as e:
-                        print(e)
+                        logger.exception(e)
                 # Hot Word succeeded
                 payload = {
                     'hotword': hotword,
@@ -619,24 +591,22 @@ class ResponsiveRecognizer(speech_recognition.Recognizer):
         #       speech is detected, but there is no code to actually do that.
         self.adjust_for_ambient_noise(source, 1.0)
 
-        print("Waiting for wake word...")
+        logger.info("[INFO] Waiting for wake word...")
         self._wait_until_wake_word(source, sec_per_buffer, emitter)
         if self._stop_signaled:
             return
 
-        print("Recording...")
         emitter.emit("recognizer_loop:record_begin")
 
         frame_data = self._record_phrase(source, sec_per_buffer)
         audio_data = self._create_audio_data(frame_data, source)
         emitter.emit("recognizer_loop:record_end")
         if self.save_utterances:
-            print("Recording utterance")
+            logger.info("[INFO] Saving utterance")
             stamp = str(datetime.datetime.now())
             filename = "/tmp/mycroft_utterance%s.wav" % stamp
             with open(filename, 'wb') as filea:
                 filea.write(audio_data.get_wav_data())
-            print("Thinking...")
 
         return audio_data
 

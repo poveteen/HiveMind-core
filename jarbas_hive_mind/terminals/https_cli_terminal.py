@@ -18,9 +18,9 @@ logger.setLevel("INFO")
 
 
 class JarbasMicroServicesAPI(object):
-    def __init__(self, api, lang="en-us", url="https://0.0.0.0:6712/"):
-        self.api = api
-        self.headers = {"Authorization": str(self.api)}
+    def __init__(self, key, url="https://0.0.0.0:6712/", lang="en-us"):
+        self.key = key
+        self.headers = {"Authorization": key}
         self.lang = lang
         self.url = url
         self.timeout = 10
@@ -51,11 +51,11 @@ class JarbasMicroServicesAPI(object):
         except ConnectionError as e:
             raise ConnectionError("Could not connect: " + str(e))
 
-    def revoke_api(self, api):
+    def revoke_key(self, key):
         ''' add a new user, requires admin api '''
         try:
             response = requests.put(
-                self.url + "revoke_api/" + api,
+                self.url + "revoke_key/" + key,
                 headers=self.headers, verify=False
             )
             try:
@@ -66,95 +66,27 @@ class JarbasMicroServicesAPI(object):
         except ConnectionError as e:
             raise ConnectionError("Could not connect: " + str(e))
 
-    def get_api(self):
+    def generate_key(self):
         ''' get an api key string, requires admin api '''
         try:
             response = requests.get(
-                self.url + "get_api",
+                self.url + "generate_key",
                 headers=self.headers, verify=False
             )
             try:
-                return response.json()["api"]
+                return response.json()["key"]
             except:
                 logger.info(response.text)
                 raise ValueError("Invalid admin api key")
         except ConnectionError as e:
             raise ConnectionError("Could not connect: " + str(e))
 
-    def get_vocab_map(self, lang=None):
-        ''' get intent this utterance will trigger NOT AVAILABLE '''
-        lang = lang or self.lang
-        try:
-            response = requests.get(
-                self.url + "vocab_map/" + lang,
-                headers=self.headers, verify=False
-            )
-            try:
-                return response.json()
-            except:
-                logger.error(response.text)
-                raise ValueError("Invalid api key")
-        except ConnectionError as e:
-            logger.error(e)
-            raise ConnectionError("Could not connect")
-
-    def get_skills_map(self, lang=None):
-        ''' get intent this utterance will trigger NOT AVAILABLE '''
-        lang = lang or self.lang
-        try:
-            response = requests.get(
-                self.url + "skills_map/" + lang,
-                headers=self.headers, verify=False
-            )
-            try:
-                return response.json()
-            except:
-                logger.error(response.text)
-                raise ValueError("Invalid api key")
-        except ConnectionError as e:
-            logger.error(e)
-            raise ConnectionError("Could not connect")
-
-    def get_intent_map(self, lang=None):
-        ''' get intent this utterance will trigger NOT AVAILABLE '''
-        lang = lang or self.lang
-        try:
-            response = requests.get(
-                self.url + "intent_map/" + lang,
-                headers=self.headers, verify=False
-            )
-            try:
-                return response.json()
-            except:
-                logger.error(response.text)
-                raise ValueError("Invalid api key")
-        except ConnectionError as e:
-            logger.error(e)
-            raise ConnectionError("Could not connect")
-
-    def get_intent(self, utterance, lang=None):
-        ''' get intent this utterance will trigger NOT AVAILABLE '''
-        lang = lang or self.lang
-        try:
-            response = requests.get(
-                self.url + "get_intent/" + lang + "/" + utterance,
-                headers=self.headers, verify=False
-            )
-            try:
-                return response.json()
-            except:
-                logger.error(response.text)
-                raise ValueError("Invalid api key")
-        except ConnectionError as e:
-            logger.error(e)
-            raise ConnectionError("Could not connect")
-
     def ask_mycroft(self, utterance, lang=None):
         ''' ask something to mycroft '''
         lang = lang or self.lang
         try:
             response = requests.put(
-                self.url + "ask/en-us/" + utterance,
+                self.url + "ask/" + lang + "/" + utterance,
                 headers=self.headers, verify=False
             )
             try:
@@ -174,10 +106,9 @@ class JarbasMicroServicesAPI(object):
                                 logger.error(e)
 
                             return {"type": "speak",
-                                    "data": {"utterance": "server timed "
-                                                          "out"},
-                                    "context": {"source": "https server",
-                                                "target": self.api}}
+                                    "data": {"utterance": "server timed out"},
+                                    "context": {"source": "hivemind_flask",
+                                                "destination": self.key}}
                         try:
                             response = requests.get(
                                 self.url + "get_answer",
@@ -192,18 +123,20 @@ class JarbasMicroServicesAPI(object):
                                      "server: " + str(ans))
             except:
                 logger.error(response.text)
-                raise ValueError("Invalid api key: " + str(self.api))
+                raise ValueError("Invalid api key: " + str(self.key))
         except ConnectionError as e:
             raise ConnectionError("Could not connect: " + str(e))
 
 
-def connect_to_hivenode(key="test_key", url="https://0.0.0.0:6712/"):
+def connect_to_hivenode(key="test_key",
+                        url="https://0.0.0.0:6712/"):
+
     ap = JarbasMicroServicesAPI(key, url)
     while True:
         line = input("Input: ")
         res = ap.ask_mycroft(line.lower())
-        logger.info("Jarbas: " + res.get("data", {}).get("utterance",
-                                                         "does not compute"))
+        logger.info("Jarbas: " + res.get("data", {})
+                    .get("utterance", "does not compute"))
 
 
 if __name__ == "__main__":

@@ -1,0 +1,4 @@
+pocketsphinx
+pyaudio
+SpeechRecognition
+responsivevoice>=0.2.1

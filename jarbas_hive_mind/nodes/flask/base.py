@@ -1,19 +1,15 @@
 import json
-import os
 import ssl
 import time
 from functools import wraps
 
-from flask import Flask, make_response, request, Response
+from flask import Flask, make_response
+from flask import request, Response
 from flask_sslify import SSLify
 
 from jarbas_hive_mind.database.client import ClientDatabase
-from jarbas_hive_mind.nodes import gen_api
-
-
-def root_dir():
-    """ Returns root directory for this project """
-    return os.path.dirname(os.path.dirname(os.path.realpath(__file__ + '/.')))
+from jarbas_hive_mind.nodes import gen_key
+from jarbas_hive_mind.settings import DEFAULT_SSL_CRT, DEFAULT_SSL_KEY
 
 
 def nice_json(arg):
@@ -38,7 +34,7 @@ def add_response_headers(headers=None):
         def decorated_function(*args, **kwargs):
             resp = make_response(f(*args, **kwargs))
             h = resp.headers
-            for header, value in headers.items():
+            for header, value in list(headers.items()):
                 h[header] = value
             return resp
 
@@ -54,30 +50,30 @@ def noindex(f):
 
 def donation(f):
     """This decorator passes btc request """
-    return add_response_headers({'BTC':
-                                     '1aeuaAijzwK4Jk2ixomRkqjF6Q3JxXp9Q',
+    return add_response_headers({'BTC': '1aeuaAijzwK4Jk2ixomRkqjF6Q3JxXp9Q',
                                  "Patreon": "patreon.com/jarbasAI",
                                  "Paypal": "paypal.me/jarbasAI"})(
         f)
 
 
-def check_auth(api_key):
+def check_auth(key):
     """This function is called to check if a api key is valid."""
-    user = users.get_client_by_api_key(api_key)
+    user = users.get_client_by_api_key(key)
     if not user:
         return False
-    users.update_timestamp(api_key, time.time())
+    users.update_timestamp(key, time.time())
     return True
 
 
-def check_admin_auth(api_key):
+def check_admin_auth(key):
     """This function is called to check if a admin api key is valid."""
-    user = users.get_client_by_api_key(api_key)
+
+    user = users.get_client_by_api_key(key)
     if not user:
         return False
     if not user.is_admin:
         return False
-    users.update_timestamp(api_key, time.time())
+    users.update_timestamp(key, time.time())
     return True
 
 
@@ -124,12 +120,12 @@ def hello():
     })
 
 
-@app.route("/revoke_api/<api>", methods=['PUT'])
+@app.route("/revoke_key/<key>", methods=['PUT'])
 @noindex
 @donation
 @requires_admin
-def revoke_api(api):
-    if users.delete_client(api):
+def revoke_key(key):
+    if users.delete_client(key):
         result = {"removed": True}
     else:
         result = {"removed": False, "error": "does not exist"}
@@ -138,33 +134,33 @@ def revoke_api(api):
     )
 
 
-@app.route("/new_user/<api>/<mail>/<name>", methods=['PUT'])
+@app.route("/new_user/<key>/<mail>/<name>", methods=['PUT'])
 @noindex
 @donation
 @requires_admin
-def add_user(api, mail, name):
+def add_user(key, mail, name):
     result = {"success": False}
-    if users.add_client(name, mail, api):
+    if users.add_client(name, mail, key):
         result = {"success": True}
     return nice_json(
         result
     )
 
 
-@app.route("/get_api", methods=['GET'])
+@app.route("/get_key", methods=['GET'])
 @noindex
 @donation
 @requires_admin
-def new_api():
-    api = gen_api(save=False)
+def new_key():
+    key = gen_key(save=False)
     return nice_json(
-        {"api": api}
+        {"key": key}
     )
 
 
-def start(app, port=6669):
-    cert = "{}/certs/default.crt".format(root_dir())
-    key = "{}/certs/default.key".format(root_dir())
+def start(app, port=6666):
+    cert = DEFAULT_SSL_CRT
+    key = DEFAULT_SSL_KEY
     context = ssl.SSLContext(ssl.PROTOCOL_TLSv1_2)
     context.load_cert_chain(cert, key)
     app.run(host="0.0.0.0", port=port, debug=False, ssl_context=context)

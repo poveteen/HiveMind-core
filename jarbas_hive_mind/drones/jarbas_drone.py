@@ -4,31 +4,29 @@ from threading import Thread
 
 from autobahn.twisted.websocket import WebSocketClientFactory, \
     WebSocketClientProtocol
-from jarbas_hive_mind.utils.messagebus.client.ws import WebsocketClient
 from twisted.internet import reactor, ssl
 from twisted.internet.protocol import ReconnectingClientFactory
 
-from jarbas_hive_mind.utils.configuration import Configuration
 from jarbas_hive_mind.utils.log import LOG as logger
-from jarbas_hive_mind.utils.messagebus.message import Message
+from jarbas_hive_mind.utils.messagebus import Message
+from jarbas_hive_mind.utils.messagebus import WebsocketClient
 
-platform = "JarbasDrone:" + Configuration.get().get("enclosure", {}).get(
-    "platform", "linux")
+platform = "Jarbas Drone"
 
 
-class JarbasClientProtocol(WebSocketClientProtocol):
+class JarbasDroneProtocol(WebSocketClientProtocol):
 
     def onConnect(self, response):
         logger.info("Server connected: {0}".format(response.peer))
-        self.factory.emitter.emit(Message("hive.mind.connected",
-                                          {"server_id": response.headers[
+        self.factory.bus.emit(Message("hive.mind.connected",
+                                      {"server_id": response.headers[
                                               "server"]}))
         self.factory.client = self
         self.factory.status = "connected"
 
     def onOpen(self):
         logger.info("WebSocket connection open. ")
-        self.factory.emitter.emit(Message("hive.mind.websocket.open"))
+        self.factory.bus.emit(Message("hive.mind.websocket.open"))
 
     def onMessage(self, payload, isBinary):
         logger.info("status: " + self.factory.status)
@@ -37,19 +35,19 @@ class JarbasClientProtocol(WebSocketClientProtocol):
             data = {"payload": payload, "isBinary": isBinary}
         else:
             data = {"payload": None, "isBinary": isBinary}
-        self.factory.emitter.emit(Message("hive.mind.message.received",
-                                          data))
+        self.factory.bus.emit(Message("hive.mind.message.received",
+                                      data))
 
     def onClose(self, wasClean, code, reason):
         logger.info("WebSocket connection closed: {0}".format(reason))
-        self.factory.emitter.emit(Message("hive.mind.connection.closed",
-                                          {"wasClean": wasClean,
+        self.factory.bus.emit(Message("hive.mind.connection.closed",
+                                      {"wasClean": wasClean,
                                            "reason": reason,
                                            "code": code}))
         self.factory.client = None
         self.factory.status = "disconnected"
 
-    def Message_to_raw_data(self, message):
+    def serialize_message(self, message):
         # convert a Message object into raw data that can be sent over
         # websocket
         if hasattr(message, 'serialize'):
@@ -58,40 +56,41 @@ class JarbasClientProtocol(WebSocketClientProtocol):
             return json.dumps(message.__dict__)
 
 
-class JarbasClientFactory(WebSocketClientFactory, ReconnectingClientFactory):
-    protocol = JarbasClientProtocol
-    emitter = None
+class JarbasDrone(WebSocketClientFactory, ReconnectingClientFactory):
+    protocol = JarbasDroneProtocol
 
-    def __init__(self, *args, **kwargs):
-        super(JarbasClientFactory, self).__init__(*args, **kwargs)
+    def __init__(self, bus=None, *args, **kwargs):
+        super(JarbasDrone, self).__init__(*args, **kwargs)
         self.client = None
         self.status = "disconnected"
         # mycroft_ws
-        self.emitter_thread = None
+        self.bus = bus
+        self.mycroft_bus_thread = None
+        self.create_mycroft_bus()
 
     # initialize methods
-    def connect_to_internal_emitter(self):
-        self.emitter.run_forever()
+    def connect_to_mycroft(self):
+        self.bus.run_forever()
 
-    def create_internal_emitter(self, emitter=None):
+    def create_mycroft_bus(self):
         # connect to mycroft internal websocket
-        self.emitter = emitter or self.emitter or WebsocketClient()
-        self.register_internal_messages()
-        self.emitter_thread = Thread(target=self.connect_to_internal_emitter)
-        self.emitter_thread.setDaemon(True)
-        self.emitter_thread.start()
+        self.bus = self.bus or WebsocketClient()
+        self.register_mycroft_messages()
+        self.mycroft_bus_thread = Thread(target=self.connect_to_mycroft)
+        self.mycroft_bus_thread.setDaemon(True)
+        self.mycroft_bus_thread.start()
 
-    def register_internal_messages(self):
-        self.emitter.on("hive.mind.message.received",
-                        self.handle_receive_server_message)
-        self.emitter.on("hive.mind.message.send",
-                        self.handle_send_server_message)
+    def register_mycroft_messages(self):
+        self.bus.on("hive.mind.message.received",
+                    self.handle_receive_server_message)
+        self.bus.on("hive.mind.message.send",
+                    self.handle_send_server_message)
 
     def shutdown(self):
-        self.emitter.remove("hive.mind.message.received",
-                            self.handle_receive_server_message)
-        self.emitter.remove("hive.mind.message.send",
-                            self.handle_send_server_message)
+        self.bus.remove("hive.mind.message.received",
+                        self.handle_receive_server_message)
+        self.bus.remove("hive.mind.message.send",
+                        self.handle_send_server_message)
 
     # websocket handlers
     def clientConnectionFailed(self, connector, reason):
@@ -116,7 +115,7 @@ class JarbasClientFactory(WebSocketClientFactory, ReconnectingClientFactory):
         else:
             # forward server message to internal bus
             message = Message.deserialize(server_msg)
-            self.emitter.emit(message)
+            self.bus.emit(message)
 
     def handle_send_server_message(self, message):
         server_msg = message.data.get("payload")
@@ -143,27 +142,25 @@ class JarbasClientFactory(WebSocketClientFactory, ReconnectingClientFactory):
             return
         if context is None:
             context = {}
-        msg = self.client.Message_to_raw_data(Message(type, data, context))
-        self.client.sendMessage(bytes(msg, "utf-8"), isBinary=False)
-        self.emitter.emit(Message("hive.mind.message.sent",
-                                  {"type": type,
-                                   "data": data,
-                                   "context": context,
-                                   "raw": msg}))
+        msg = self.client.serialize_message(Message(type, data, context))
+        self.client.sendMessage(msg, isBinary=False)
+        self.bus.emit(Message("hive.mind.message.sent",
+                              {"type": type,
+                               "data": data,
+                               "context": context,
+                               "raw": msg}))
 
 
-def connect_to_hivemind(host="127.0.0.1",
-                        port=5678, name="Jarbas Drone",
-                        api="test_key", useragent=platform, emitter=None):
-    authorization = name + ":" + api
-    usernamePasswordDecoded = bytes(authorization, "utf-8")
-    api = base64.b64encode(usernamePasswordDecoded)
-    headers = {'authorization': api}
+def connect_to_hivemind(host="127.0.0.1", port=5678, name="Jarbas Drone",
+                        key="drone_key", useragent=platform, bus=None):
+    authorization = bytes(name + ":" + key, encoding="utf-8")
+    usernamePasswordDecoded = authorization
+    key = base64.b64encode(usernamePasswordDecoded)
+    headers = {'authorization': key}
     address = u"wss://" + host + u":" + str(port)
-    factory = JarbasClientFactory(address, headers=headers,
-                                  useragent=useragent)
-    factory.protocol = JarbasClientProtocol
-    factory.create_internal_emitter(emitter)
+    factory = JarbasDrone(bus=bus, headers=headers,
+                          useragent=useragent)
+    factory.protocol = JarbasDroneProtocol
     contextFactory = ssl.ClientContextFactory()
     reactor.connectSSL(host, port, factory, contextFactory)
     reactor.run()

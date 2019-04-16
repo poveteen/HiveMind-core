@@ -12,6 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
+import logging
 import os
 import sys
 import tempfile
@@ -22,6 +23,10 @@ from subprocess import Popen, PIPE, call
 from tempfile import NamedTemporaryFile
 from threading import Thread
 from time import time as get_time
+
+logger = logging.getLogger("hotwords")
+logger.addHandler(logging.StreamHandler(sys.stdout))
+logger.setLevel("INFO")
 
 conf = {
     "listener": {
@@ -48,7 +53,7 @@ conf = {
             "threshold": 1e-1,
             "listen": False,
             "utterance": "thank you",
-            "active": True,
+            "active": False,
             "sound": "",
             "lang": "en-us"
         },
@@ -94,11 +99,6 @@ class PocketsphinxHotWord(HotWordEngine):
         super(PocketsphinxHotWord, self).__init__(key_phrase, config, lang)
         # Hotword module imports
         from pocketsphinx import Decoder
-        # Hotword module config
-        if self.module != "pocketsphinx":
-            print(str(
-                self.module) +
-                    " module does not match with Hotword class pocketsphinx")
         # Hotword module params
         self.phonemes = self.config.get("phonemes", "HH EY . M AY K R AO F T")
         self.num_phonemes = len(self.phonemes.split())
@@ -120,7 +120,8 @@ class PocketsphinxHotWord(HotWordEngine):
     def create_config(self, dict_name, config):
         model_file = join(RECOGNIZER_DIR, 'model', self.lang, 'hmm')
         if not exists(model_file):
-            print('PocketSphinx model not found at ' + str(model_file))
+            logger.error(
+                '[ERROR] PocketSphinx model not found at ' + str(model_file))
         config.set_string('-hmm', model_file)
         config.set_string('-dict', dict_name)
         config.set_string('-keyphrase', self.key_phrase)
@@ -148,9 +149,6 @@ class PreciseHotword(HotWordEngine):
     def __init__(self, key_phrase="hey mycroft", config=None, lang="en-us"):
         super(PreciseHotword, self).__init__(key_phrase, config, lang)
         self.update_freq = 24  # in hours
-        if self.module != "precise":
-            print(self.module + " module does not match with Hotword "
-                        "class precise")
         precise_config = config.get('precise')
         self.dist_url = precise_config['dist_url']
         self.models_url = precise_config['models_url']
@@ -159,7 +157,7 @@ class PreciseHotword(HotWordEngine):
         model_name, model_path = self.get_model_info()
 
         exe_file = self.find_download_exe()
-        print('Found precise executable: ' + exe_file)
+        logger.info('[INFO] Found precise executable: ' + exe_file)
         self.update_model(model_name, model_path)
 
         args = [exe_file, model_path, '1024']
@@ -231,11 +229,11 @@ class PreciseHotword(HotWordEngine):
             from urllib.request import urlopen
         else:
             from urllib2 import urlopen
-        print('Downloading: ' + url)
+        logger.info('[INFO] Downloading: ' + url)
         req = urlopen(url)
         with open(filename, 'wb') as fp:
             shutil.copyfileobj(req, fp)
-        print('Download complete.')
+        logger.info('[INFO] Download complete.')
 
     def update_model(self, name, file_name):
         if isfile(file_name):
@@ -272,10 +270,6 @@ class SnowboyHotWord(HotWordEngine):
         super(SnowboyHotWord, self).__init__(key_phrase, config, lang)
         # Hotword module imports
         from snowboydecoder import HotwordDetector
-        # Hotword module config
-        if self.module != "snowboy":
-            print(self.module + " module does not match with Hotword "
-                        "class snowboy")
         # Hotword params
         models = self.config.get("models", {})
         paths = []
@@ -301,7 +295,7 @@ class HotWordFactory(object):
 
     @staticmethod
     def create_hotword(hotword="hey mycroft", config=None, lang="en-us"):
-        print("creating " + hotword)
+        logger.info("[INFO] creating " + hotword)
         if not config:
             config = conf.get("hotwords", {})
         module = config.get(hotword).get("module", "pocketsphinx")
@@ -310,5 +304,6 @@ class HotWordFactory(object):
         try:
             return clazz(hotword, config, lang=lang)
         except Exception:
-            print('Could not create hotword. Falling back to default.')
+            logger.warning(
+                '[WARNING] Could not create hotword. Falling back to default.')
             return HotWordFactory.CLASSES['pocketsphinx']()
