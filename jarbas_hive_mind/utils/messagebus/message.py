@@ -15,7 +15,7 @@
 import json
 import re
 
-from mycroft_lang_utils.parse import normalize
+from lingua_franca.parse import normalize
 
 
 class Message:
