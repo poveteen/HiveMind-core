@@ -6,52 +6,7 @@ from twisted.internet import reactor, ssl
 from twisted.internet.protocol import ReconnectingClientFactory
 
 from jarbas_hive_mind.terminals.speech.listener import RecognizerLoop
-
-conf = {
-    "listener": {
-        "sample_rate": 16000,
-        "channels": 1,
-        "record_wake_words": False,
-        "record_utterances": False,
-        "phoneme_duration": 120,
-        "multiplier": 1.0,
-        "energy_ratio": 1.5,
-        "wake_word": "hey mycroft",
-        "stand_up_word": "wake up"
-    },
-    "hotwords": {
-        "hey mycroft": {
-            "module": "pocketsphinx",
-            "phonemes": "HH EY . M AY K R AO F T",
-            "threshold": 1e-90,
-            "lang": "en-us"
-        },
-        "thank you": {
-            "module": "pocketsphinx",
-            "phonemes": "TH AE NG K . Y UW .",
-            "threshold": 1e-1,
-            "listen": False,
-            "utterance": "thank you",
-            "active": False,
-            "sound": "",
-            "lang": "en-us"
-        },
-        "wake up": {
-            "module": "pocketsphinx",
-            "phonemes": "W EY K . AH P",
-            "threshold": 1e-20,
-            "lang": "en-us"
-        }
-    },
-    "stt": {
-        "deepspeech_server": {
-            "uri": "http://localhost:8080/stt"
-        },
-        "kaldi": {
-            "uri": "http://localhost:8080/client/dynamic/recognize"
-        }
-    }
-}
+from jarbas_hive_mind.settings import LISTENER_CONFIG
 
 import json
 import sys
@@ -202,7 +157,7 @@ class JarbasVoiceTerminal(WebSocketClientFactory,
                           ReconnectingClientFactory):
     protocol = JarbasVoiceTerminalProtocol
 
-    def __init__(self, config=conf, *args, **kwargs):
+    def __init__(self, config=LISTENER_CONFIG, *args, **kwargs):
         super(JarbasVoiceTerminal, self).__init__(*args, **kwargs)
         self.status = "disconnected"
         self.client = None
@@ -224,7 +179,7 @@ class JarbasVoiceTerminal(WebSocketClientFactory,
         self.retry(connector)
 
 
-def connect_to_hivemind(config=conf, host="127.0.0.1",
+def connect_to_hivemind(config=LISTENER_CONFIG, host="127.0.0.1",
                         port=5678, name="Jarbas Voice Terminal",
                         key="voice_key", useragent=platform):
     authorization = bytes(name + ":" + key, encoding="utf-8")

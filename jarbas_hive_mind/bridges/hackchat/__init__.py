@@ -1,4 +1,3 @@
-import base64
 import json
 import logging
 import sys
@@ -7,7 +6,6 @@ from time import sleep
 
 from autobahn.twisted.websocket import WebSocketClientFactory, \
     WebSocketClientProtocol
-from twisted.internet import reactor, ssl
 from twisted.internet.protocol import ReconnectingClientFactory
 
 platform = "JarbasHackChatBridgev0.2"
@@ -211,22 +209,3 @@ class JarbasHackChatBridge(WebSocketClientFactory,
         self.retry(connector)
 
 
-def connect_to_hackchat(channel, username="Jarbas_BOT", host="127.0.0.1",
-                        port=5678, name="Jarbas HackChat Bridge",
-                        api="hackchat_key", useragent=platform):
-    authorization = bytes(name + ":" + api, encoding="utf-8")
-    usernamePasswordDecoded = authorization
-    api = base64.b64encode(usernamePasswordDecoded)
-    headers = {'authorization': api}
-    address = u"wss://" + host + u":" + str(port)
-    logger.info("[INFO] connected to hivemind: " + address)
-    bridge = JarbasHackChatBridge(channel=channel, username=username,
-                                  headers=headers, useragent=useragent)
-    contextFactory = ssl.ClientContextFactory()
-    reactor.connectSSL(host, port, bridge, contextFactory)
-    reactor.run()
-
-
-if __name__ == '__main__':
-    # TODO arg parse
-    connect_to_hackchat("JarbasAI_bot")

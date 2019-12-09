@@ -6,7 +6,7 @@
 
 Join the mycroft collective, utils for mycroft-core mesh networking
 
-![](hivemind.png)
+![](../hivemind.png)
 
 ## Install
 

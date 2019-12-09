@@ -1,7 +1,7 @@
 import logging
 from threading import Thread
 
-from jarbas_hive_mind.nodes.flask.base import *
+from jarbas_hive_mind.nodes.flask.base import get_app, noindex, donation, requires_auth, request, nice_json, start
 from jarbas_hive_mind.utils.messagebus.message import Message
 from jarbas_hive_mind.utils.messagebus.ws import WebsocketClient
 
@@ -9,6 +9,7 @@ platform = "FlaskHiveNodev0.1"
 LOG = logging.getLogger(platform)
 LOG.setLevel("INFO")
 
+app = get_app()
 ws = None
 answers = {}
 users_on_hold = {}

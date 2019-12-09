@@ -1,5 +1,4 @@
 #!/usr/bin/env python
-import base64
 import json
 import logging
 import os
@@ -12,7 +11,6 @@ import tornado.web
 import tornado.websocket
 from autobahn.twisted.websocket import WebSocketClientFactory, \
     WebSocketClientProtocol
-from twisted.internet import reactor, ssl
 from twisted.internet.protocol import ReconnectingClientFactory
 
 platform = "JarbasWebChatTerminalv0.1"
@@ -20,7 +18,7 @@ logger = logging.getLogger(platform)
 logger.setLevel("INFO")
 
 ip = check_output([b'hostname', b'--all-ip-addresses']) \
-    .decode("utf-8").replace(" \n", "")
+    .decode("utf-8").split()[-1]
 port = 8286
 clients = {}
 lang = "en-us"
@@ -144,7 +142,10 @@ class WebSocketHandler(tornado.websocket.WebSocketHandler):
 
     def on_close(self):
         global clients
-        clients.pop(self.peer)
+        try:
+            clients.pop(self.peer)
+        except:
+            pass
 
 
 class JarbasWebChatTerminal(WebSocketClientFactory,
@@ -170,22 +171,3 @@ class JarbasWebChatTerminal(WebSocketClientFactory,
         self.retry(connector)
 
 
-def connect_to_hivemind(host="127.0.0.1",
-                        port=5678, name="Jarbas WebChat Terminal",
-                        key="webchat_key", useragent=platform):
-    authorization = bytes(name + ":" + key, encoding="utf-8")
-    usernamePasswordDecoded = authorization
-    api = base64.b64encode(usernamePasswordDecoded)
-    headers = {'authorization': api}
-    address = u"wss://" + host + u":" + str(port)
-    logger.info("[INFO] connecting to hive mind at " + address)
-    terminal = JarbasWebChatTerminal(address, headers=headers,
-                                     useragent=useragent)
-    contextFactory = ssl.ClientContextFactory()
-    reactor.connectSSL(host, port, terminal, contextFactory)
-    reactor.run()
-
-
-if __name__ == '__main__':
-    # TODO parse args
-    connect_to_hivemind()

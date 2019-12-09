@@ -2,48 +2,50 @@ import os
 
 from setuptools import setup
 
-
-def package_files(directory):
-    paths = []
-    for (path, directories, filenames) in os.walk(directory):
-        for filename in filenames:
-            paths.append(os.path.join('..', path, filename))
-    return paths
-
-
-def required(requirements_file):
-    """ Read requirements file and remove comments and empty lines. """
-    with open(os.path.join(os.path.dirname(__file__), requirements_file),
-              'r') as f:
-        requirements = f.read().splitlines()
-        return [pkg for pkg in requirements
-                if pkg.strip() and not pkg.startswith("#")]
-
-
 setup(
     name='jarbas_hive_mind',
-    version='0.2.1',
+    version='0.3.1',
     packages=['jarbas_hive_mind',
               'jarbas_hive_mind.minds',
+              'jarbas_hive_mind.minds.simple',
               'jarbas_hive_mind.nodes',
               'jarbas_hive_mind.nodes.flask',
               'jarbas_hive_mind.utils',
               'jarbas_hive_mind.utils.messagebus',
               'jarbas_hive_mind.drones',
+              'jarbas_hive_mind.drones.simple',
               'jarbas_hive_mind.bridges',
+              'jarbas_hive_mind.bridges.hackchat',
+              'jarbas_hive_mind.bridges.facebook',
+              'jarbas_hive_mind.bridges.twitch',
+              'jarbas_hive_mind.bridges.twitter',
               'jarbas_hive_mind.database',
               'jarbas_hive_mind.terminals',
+              'jarbas_hive_mind.terminals.https',
+              'jarbas_hive_mind.terminals.cli',
+              'jarbas_hive_mind.terminals.basic_web',
               'jarbas_hive_mind.terminals.speech',
               'jarbas_hive_mind.terminals.speech.stt',
               'jarbas_hive_mind.terminals.speech.recognizer',
-              'jarbas_hive_mind.terminals.camera',
               'jarbas_hive_mind.terminals.webchat'],
-    package_data={'': package_files('jarbas_hive_mind')},
     include_package_data=True,
-    install_requires=required('requirements.txt'),
+    install_requires=["pyopenssl",
+                      "service_identity",
+                      "flask",
+                      "flask-sslify",
+                      "yagmail",
+                      "autobahn",
+                      "twisted",
+                      "sqlalchemy",
+                      "lingua_franca",
+                      "requests",
+                      "python-dateutil==2.6.0",
+                      "tornado==4.5.3",
+                      "pyee==5.0.0",
+                      "websocket-client==0.54.0"],
     url='https://github.com/JarbasAl/hive_mind',
     license='MIT',
     author='jarbasAI',
     author_email='jarbasai@mailfence.com',
-    description='Telepathy for mycroft core'
+    description='Networking utilities for mycroft core'
 )

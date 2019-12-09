@@ -11,18 +11,13 @@ from jarbas_hive_mind.database.client import ClientDatabase
 from jarbas_hive_mind.nodes import gen_key
 from jarbas_hive_mind.settings import DEFAULT_SSL_CRT, DEFAULT_SSL_KEY
 
+users = ClientDatabase()
+
 
 def nice_json(arg):
-    response = make_response(json.dumps(arg, sort_keys = True, indent=4))
+    response = make_response(json.dumps(arg, sort_keys=True, indent=4))
     response.headers['Content-type'] = "application/json"
     return response
-
-app = Flask(__name__)
-sslify = SSLify(app)
-port = 5678
-
-
-users = ClientDatabase()
 
 
 def add_response_headers(headers=None):
@@ -108,54 +103,57 @@ def requires_admin(f):
     return decorated
 
 
-@app.route("/", methods=['GET'])
-@noindex
-@donation
-def hello():
-    return nice_json({
-        "uri": "/",
-        "welcome to jarbas microservices": {
-            "under": "construction"
-        }
-    })
+def get_app():
+    app = Flask(__name__)
+    sslify = SSLify(app)
 
+    @app.route("/", methods=['GET'])
+    @noindex
+    @donation
+    def hello():
+        return nice_json({
+            "uri": "/",
+            "welcome to jarbas microservices": {
+                "under": "construction"
+            }
+        })
 
-@app.route("/revoke_key/<key>", methods=['PUT'])
-@noindex
-@donation
-@requires_admin
-def revoke_key(key):
-    if users.delete_client(key):
-        result = {"removed": True}
-    else:
-        result = {"removed": False, "error": "does not exist"}
-    return nice_json(
-        result
-    )
+    @app.route("/revoke_key/<key>", methods=['PUT'])
+    @noindex
+    @donation
+    @requires_admin
+    def revoke_key(key):
+        if users.delete_client(key):
+            result = {"removed": True}
+        else:
+            result = {"removed": False, "error": "does not exist"}
+        return nice_json(
+            result
+        )
 
+    @app.route("/new_user/<key>/<mail>/<name>", methods=['PUT'])
+    @noindex
+    @donation
+    @requires_admin
+    def add_user(key, mail, name):
+        result = {"success": False}
+        if users.add_client(name, mail, key):
+            result = {"success": True}
+        return nice_json(
+            result
+        )
 
-@app.route("/new_user/<key>/<mail>/<name>", methods=['PUT'])
-@noindex
-@donation
-@requires_admin
-def add_user(key, mail, name):
-    result = {"success": False}
-    if users.add_client(name, mail, key):
-        result = {"success": True}
-    return nice_json(
-        result
-    )
+    @app.route("/get_key", methods=['GET'])
+    @noindex
+    @donation
+    @requires_admin
+    def new_key():
+        key = gen_key(save=False)
+        return nice_json(
+            {"key": key}
+        )
 
-
-@app.route("/get_key", methods=['GET'])
-@noindex
-@donation
-@requires_admin
-def new_key():
-    key = gen_key(save=False)
-    return nice_json(
-        {"key": key}
-    )
+    return app
 
 
 def start(app, port=6666):
@@ -167,5 +165,4 @@ def start(app, port=6666):
 
 
 if __name__ == "__main__":
-    global app
-    start(app, port)
+    start(get_app())

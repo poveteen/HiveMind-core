@@ -18,24 +18,14 @@ from abc import ABCMeta, abstractmethod
 
 from requests import post
 from speech_recognition import Recognizer
-
-conf = {"lang": "en-us",
-        "stt": {
-            "module": "google",
-            "deepspeech_server": {
-               "uri": "http://localhost:8080/stt"
-            },
-            "kaldi": {
-               "uri": "http://localhost:8080/client/dynamic/recognize"
-            }
-        }}
+from jarbas_hive_mind.settings import STT_CONFIG
 
 
 class STT(object):
     __metaclass__ = ABCMeta
 
     def __init__(self):
-        config_core = conf
+        config_core = STT_CONFIG
         self.lang = str(self.init_language(config_core))
         config_stt = config_core.get("stt", {})
         self.config = config_stt.get(config_stt.get("module"), {})
@@ -217,7 +207,7 @@ class STTFactory(object):
 
     @staticmethod
     def create(config=None):
-        config = config or conf.get("stt", {})
+        config = config or STT_CONFIG.get("stt", {})
         module = config.get("module", "google")
         clazz = STTFactory.CLASSES.get(module)
         return clazz()

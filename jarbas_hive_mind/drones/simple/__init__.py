@@ -1,15 +1,13 @@
-import base64
 import json
 from threading import Thread
 
 from autobahn.twisted.websocket import WebSocketClientFactory, \
     WebSocketClientProtocol
-from twisted.internet import reactor, ssl
 from twisted.internet.protocol import ReconnectingClientFactory
 
 from jarbas_hive_mind.utils.log import LOG as logger
-from jarbas_hive_mind.utils.messagebus import Message
-from jarbas_hive_mind.utils.messagebus import WebsocketClient
+from jarbas_hive_mind.utils.messagebus.message import Message
+from jarbas_hive_mind.utils.messagebus.ws import WebsocketClient
 
 platform = "Jarbas Drone"
 
@@ -151,21 +149,3 @@ class JarbasDrone(WebSocketClientFactory, ReconnectingClientFactory):
                                "raw": msg}))
 
 
-def connect_to_hivemind(host="127.0.0.1", port=5678, name="Jarbas Drone",
-                        key="drone_key", useragent=platform, bus=None):
-    authorization = bytes(name + ":" + key, encoding="utf-8")
-    usernamePasswordDecoded = authorization
-    key = base64.b64encode(usernamePasswordDecoded)
-    headers = {'authorization': key}
-    address = u"wss://" + host + u":" + str(port)
-    factory = JarbasDrone(bus=bus, headers=headers,
-                          useragent=useragent)
-    factory.protocol = JarbasDroneProtocol
-    contextFactory = ssl.ClientContextFactory()
-    reactor.connectSSL(host, port, factory, contextFactory)
-    reactor.run()
-
-
-if __name__ == '__main__':
-    # TODO arg parse
-    connect_to_hivemind()

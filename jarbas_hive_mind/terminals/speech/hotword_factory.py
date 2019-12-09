@@ -98,7 +98,12 @@ class PocketsphinxHotWord(HotWordEngine):
     def __init__(self, key_phrase="hey mycroft", config=None, lang="en-us"):
         super(PocketsphinxHotWord, self).__init__(key_phrase, config, lang)
         # Hotword module imports
-        from pocketsphinx import Decoder
+        try:
+            # pip install
+            from pocketsphinx import Decoder
+        except ImportError:
+            # source install
+            from pocketsphinx.pocketsphinx import Decoder
         # Hotword module params
         self.phonemes = self.config.get("phonemes", "HH EY . M AY K R AO F T")
         self.num_phonemes = len(self.phonemes.split())
