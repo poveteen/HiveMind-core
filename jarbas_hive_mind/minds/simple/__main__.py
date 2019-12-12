@@ -3,7 +3,7 @@ from twisted.internet import reactor, ssl
 from jarbas_hive_mind.settings import CERTS_PATH, DEFAULT_SSL_CRT, \
     DEFAULT_SSL_KEY, DEFAULT_PORT, USE_SSL
 from jarbas_hive_mind.utils import create_self_signed_cert
-from jarbas_hive_mind.utils.log import LOG
+from jarbas_utils.log import LOG
 from os.path import exists
 
 

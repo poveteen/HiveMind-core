@@ -8,7 +8,7 @@ from socket import gethostname
 from OpenSSL import crypto
 
 from jarbas_hive_mind.settings import CERTS_PATH, LOG_BLACKLIST
-from jarbas_hive_mind.utils.log import LOG
+from jarbas_utils.log import LOG
 
 
 def validate_param(value, name):

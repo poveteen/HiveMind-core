@@ -2,6 +2,7 @@ from os import makedirs
 from os.path import isdir, join, expanduser
 
 DATA_PATH = expanduser("~/jarbas_hivemind")
+
 if not isdir(DATA_PATH):
     makedirs(DATA_PATH)
 

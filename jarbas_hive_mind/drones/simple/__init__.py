@@ -5,9 +5,8 @@ from autobahn.twisted.websocket import WebSocketClientFactory, \
     WebSocketClientProtocol
 from twisted.internet.protocol import ReconnectingClientFactory
 
-from jarbas_hive_mind.utils.log import LOG as logger
-from jarbas_hive_mind.utils.messagebus.message import Message
-from jarbas_hive_mind.utils.messagebus.ws import WebsocketClient
+from jarbas_utils.log import LOG as logger
+from jarbas_utils.messagebus import Message, get_mycroft_bus
 
 platform = "Jarbas Drone"
 
@@ -62,22 +61,10 @@ class JarbasDrone(WebSocketClientFactory, ReconnectingClientFactory):
         self.client = None
         self.status = "disconnected"
         # mycroft_ws
-        self.bus = bus
-        self.mycroft_bus_thread = None
-        self.create_mycroft_bus()
+        self.bus = bus or get_mycroft_bus()
+        self.register_mycroft_messages()
 
     # initialize methods
-    def connect_to_mycroft(self):
-        self.bus.run_forever()
-
-    def create_mycroft_bus(self):
-        # connect to mycroft internal websocket
-        self.bus = self.bus or WebsocketClient()
-        self.register_mycroft_messages()
-        self.mycroft_bus_thread = Thread(target=self.connect_to_mycroft)
-        self.mycroft_bus_thread.setDaemon(True)
-        self.mycroft_bus_thread.start()
-
     def register_mycroft_messages(self):
         self.bus.on("hive.mind.message.received",
                     self.handle_receive_server_message)

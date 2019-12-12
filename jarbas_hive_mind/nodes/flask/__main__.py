@@ -2,23 +2,22 @@ import logging
 from threading import Thread
 
 from jarbas_hive_mind.nodes.flask.base import get_app, noindex, donation, requires_auth, request, nice_json, start
-from jarbas_hive_mind.utils.messagebus.message import Message
-from jarbas_hive_mind.utils.messagebus.ws import WebsocketClient
+from jarbas_utils.messagebus import Message, get_mycroft_bus
 
 platform = "FlaskHiveNodev0.1"
 LOG = logging.getLogger(platform)
 LOG.setLevel("INFO")
 
 app = get_app()
-ws = None
+bus = None
 answers = {}
 users_on_hold = {}
 timeout = 60
 
 
 def connect():
-    global ws
-    ws.run_forever()
+    global bus
+    bus.run_forever()
 
 
 @app.route("/ask/<lang>/<utterance>", methods=['PUT', 'GET'])
@@ -42,7 +41,7 @@ def ask(utterance, lang="en-us"):
     users_on_hold[user_id] = False
     answers[user_id] = None
     # emit message
-    ws.emit(message)
+    bus.emit(message)
     result = {"status": "processing"}
     return nice_json(result)
 
@@ -135,13 +134,13 @@ def end_wait(message):
 
 
 def launch(config=None):
-    global app, ws, timeout
+    global app, bus, timeout
     config = config or {}
     # connect to internal mycroft
-    ws = WebsocketClient()
-    ws.on("mycroft.skill.handler.complete", end_wait)
-    ws.on("complete_intent_failure", end_wait)
-    ws.on("speak", listener)
+    bus = get_mycroft_bus()
+    bus.on("mycroft.skill.handler.complete", end_wait)
+    bus.on("complete_intent_failure", end_wait)
+    bus.on("speak", listener)
     event_thread = Thread(target=connect)
     event_thread.setDaemon(True)
     event_thread.start()

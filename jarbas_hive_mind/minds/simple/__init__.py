@@ -4,9 +4,8 @@ from threading import Thread
 from autobahn.twisted.websocket import WebSocketServerProtocol, \
     WebSocketServerFactory
 from jarbas_hive_mind.database.client import ClientDatabase
-from jarbas_hive_mind.utils.log import LOG
-from jarbas_hive_mind.utils.messagebus.message import Message
-from jarbas_hive_mind.utils.messagebus.ws import WebsocketClient
+from jarbas_utils.log import LOG
+from jarbas_utils.messagebus import Message, get_mycroft_bus
 
 author = "jarbasAI"
 
@@ -102,9 +101,8 @@ class JarbasMind(WebSocketServerFactory):
         self.ip_list = []
         self.blacklist = True  # if False, ip_list is a whitelist
         # mycroft_ws
-        self.bus = bus
-        self.bus_daemon = None
-        self.create_mycroft_connection()
+        self.bus = bus or get_mycroft_bus()
+        self.register_mycroft_messages()
 
     def mycroft_send(self, type, data=None, context=None):
         data = data or {}
@@ -112,17 +110,6 @@ class JarbasMind(WebSocketServerFactory):
         if "client_name" not in context:
             context["client_name"] = NAME
         self.bus.emit(Message(type, data, context))
-
-    def connect_to_mycroft(self):
-        self.bus.run_forever()
-
-    def create_mycroft_connection(self):
-        # connect to mycroft internal websocket
-        self.bus = self.bus or WebsocketClient()
-        self.register_mycroft_messages()
-        self.bus_daemon = Thread(target=self.connect_to_mycroft)
-        self.bus_daemon.setDaemon(True)
-        self.bus_daemon.start()
 
     def register_mycroft_messages(self):
         # HACK, TODO find why failing
