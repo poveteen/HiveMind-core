@@ -1,4 +1,4 @@
-from jarbas_hive_mind.minds.simple import JarbasMind, JarbasMindProtocol
+from jarbas_hive_mind.master import JarbasMind, JarbasMindProtocol
 from twisted.internet import reactor, ssl
 from jarbas_hive_mind.settings import CERTS_PATH, DEFAULT_SSL_CRT, \
     DEFAULT_SSL_KEY, DEFAULT_PORT, USE_SSL

@@ -1,6 +1,6 @@
 import base64
 from twisted.internet import reactor, ssl
-from jarbas_hive_mind.drones.simple import JarbasDrone, JarbasDroneProtocol, platform
+from jarbas_hive_mind.slave import JarbasDrone, JarbasDroneProtocol, platform
 
 
 def connect_to_hivemind(host="127.0.0.1", port=5678, name="Jarbas Drone",

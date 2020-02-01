@@ -1,5 +1,4 @@
 import base64
-from threading import Thread
 
 from autobahn.twisted.websocket import WebSocketServerProtocol, \
     WebSocketServerFactory
