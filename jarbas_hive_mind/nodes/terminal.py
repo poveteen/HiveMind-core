@@ -5,6 +5,8 @@ from jarbas_hive_mind.interface import HiveMindSlaveInterface
 from jarbas_hive_mind.nodes import HiveMindNodeType
 from ovos_utils.messagebus import Message
 import json
+from poorman_handshake import HandShake
+
 
 
 class HiveMindTerminalProtocol:
@@ -101,6 +103,9 @@ class HiveMindTerminal:
         self.auto_reconnect = auto_reconnect
         self.upnp_server = None
         self.ssdp = None
+        self.handshake = None
+        if not self.crypto_key:
+            self.handshake = HandShake()
         if connection:
             self.bind(connection)
 
@@ -154,6 +159,19 @@ class HiveMindTerminal:
         if "platform" not in message.context:
             message.context["platform"] = self.protocol.platform
         self.handle_incoming_mycroft(message)
+
+    def handle_handshake_message(self, message):
+        payload = message.payload
+        # respond to handshake
+        if message.payload.get("shake"):
+            LOG.info("Received encryption key")
+            self.handshake.receive_key(payload["shake"])
+            self.crypto_key = self.handshake.aes_key
+        elif message.payload["handshake"]:
+            LOG.info("Sending pubkey for handshake")
+            payload["pubkey"] = self.handshake.pubkey
+            msg = HiveMessage(HiveMessageType.HANDSHAKE, payload)
+            self.interface.send(msg)
 
     def handle_propagate_message(self, message):
         LOG.info("Received propagate message at: " + self.node_id)
@@ -211,7 +229,9 @@ class HiveMindTerminal:
         assert isinstance(msg, HiveMessage)
 
         # Parse hive protocol
-        if msg.msg_type == HiveMessageType.BUS:
+        if msg.msg_type == HiveMessageType.HANDSHAKE:
+            self.handle_handshake_message(msg)
+        elif msg.msg_type == HiveMessageType.BUS:
             self.handle_bus_message(msg.payload)
         elif msg.msg_type == HiveMessageType.PROPAGATE:
             self.handle_propagate_message(msg)

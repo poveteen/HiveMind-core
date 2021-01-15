@@ -16,6 +16,10 @@ def default_config():
             'twisted': False,
             'mycroft_bus': MYCROFT_WEBSOCKET_CONFIG,
             'port': DEFAULT_PORT,
+            "crypto": {
+                "require_crypto": True,
+                "enable_handshake": True
+            },
             'ssl': {'certificates': join(DATA_PATH, "certs"),
                     'ssl_certfile': 'HiveMind.crt',
                     'ssl_keyfile': 'HiveMind.key'}
