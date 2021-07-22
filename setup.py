@@ -2,7 +2,7 @@ from setuptools import setup
 
 setup(
     name='jarbas_hive_mind',
-    version='0.10.8',
+    version='0.10.9a1',
     packages=['jarbas_hive_mind',
               'jarbas_hive_mind.nodes',
               'jarbas_hive_mind.configuration',
@@ -21,7 +21,6 @@ setup(
                       "ovos_utils>=0.0.6",
                       "json_database>=0.2.6",
                       "pycryptodomex",
-                      "zeroconf>=0.1.6",
                       "upnpclient>=0.0.8"],
     url='https://github.com/JarbasAl/hive_mind',
     license='MIT',
