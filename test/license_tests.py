@@ -18,7 +18,6 @@ license_overrides = {
 whitelist = [
     'idna',  # BSD-like
     'python-dateutil',  # 'Simplified BSD'
-    'cryptography',  # 'BSD or Apache License, Version 2.0',
     'pycryptodomex',  # 'BSD, Public Domain',
 ]
 
