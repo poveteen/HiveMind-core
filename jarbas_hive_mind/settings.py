@@ -2,7 +2,8 @@ from os import makedirs
 from os.path import isdir, join
 from ovos_utils.xdg_utils import xdg_data_home
 
-DATA_PATH = join(xdg_data_home(), "jarbasHiveMind")
+BASE_FOLDER = "jarbasHiveMind"
+DATA_PATH = join(xdg_data_home(), BASE_FOLDER)
 if not isdir(DATA_PATH):
     makedirs(DATA_PATH)
 
