@@ -1,27 +1,57 @@
 from setuptools import setup
+import os
+from setuptools import setup
+
+BASEDIR = os.path.abspath(os.path.dirname(__file__))
+
+
+def get_version():
+    """ Find the version of the package"""
+    version = None
+    version_file = os.path.join(BASEDIR, 'ovos_config_assistant', 'version.py')
+    major, minor, build, alpha = (None, None, None, None)
+    with open(version_file) as f:
+        for line in f:
+            if 'VERSION_MAJOR' in line:
+                major = line.split('=')[1].strip()
+            elif 'VERSION_MINOR' in line:
+                minor = line.split('=')[1].strip()
+            elif 'VERSION_BUILD' in line:
+                build = line.split('=')[1].strip()
+            elif 'VERSION_ALPHA' in line:
+                alpha = line.split('=')[1].strip()
+
+            if ((major and minor and build and alpha) or
+                    '# END_VERSION_BLOCK' in line):
+                break
+    version = f"{major}.{minor}.{build}"
+    if alpha:
+        version += f"a{alpha}"
+    return version
+
+
+def required(requirements_file):
+    """ Read requirements file and remove comments and empty lines. """
+    with open(os.path.join(BASEDIR, requirements_file), 'r') as f:
+        requirements = f.read().splitlines()
+        if 'MYCROFT_LOOSE_REQUIREMENTS' in os.environ:
+            print('USING LOOSE REQUIREMENTS!')
+            requirements = [r.replace('==', '>=').replace('~=', '>=') for r in requirements]
+        return [pkg for pkg in requirements
+                if pkg.strip() and not pkg.startswith("#")]
+
 
 setup(
     name='jarbas_hive_mind',
-    version='0.10.9',
+    version=get_version(),
     packages=['jarbas_hive_mind',
               'jarbas_hive_mind.backends',
               'jarbas_hive_mind.nodes',
               'jarbas_hive_mind.configuration',
               'jarbas_hive_mind.database',
-              'jarbas_hive_mind.utils',
-              'jarbas_hive_mind.discovery',
-              # below are deprecated, backwards compat only
-              'jarbas_hive_mind.master',
-              'jarbas_hive_mind.slave'],
+              'jarbas_hive_mind.utils'],
     include_package_data=True,
-    install_requires=["pyopenssl",
-                      "service_identity",
-                      "autobahn",
-                      "mycroft-messagebus-client>=0.9.1",
-                      "ovos_utils>=0.0.17",
-                      "json_database>=0.2.6",
-                      "pycryptodomex",
-                      "HiveMind_presence~=0.0.2a2"],
+    install_requires=required("requirements/requirements.txt"),
     url='https://github.com/JarbasAl/hive_mind',
     license='MIT',
     author='jarbasAI',
